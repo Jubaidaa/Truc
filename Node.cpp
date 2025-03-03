@@ -4,6 +4,8 @@
 /** @file Node.cpp 
 	 Listing 4-2 */
 #include "Node.h"
+#include <ostream>
+#include <iostream>
 //#include <cstddef>
 
 template<class ItemType>

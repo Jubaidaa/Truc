@@ -1,5 +1,8 @@
 #include "LinkedBag.h"
 #include "Node.h"
+// #include "Node.cpp"
+#include "vector"
+#include <string>
 
 template<class ItemType>
 bool LinkedBag<ItemType>::append(const ItemType& newEntry) {
@@ -10,29 +13,29 @@ bool LinkedBag<ItemType>::append(const ItemType& newEntry) {
     if (headPtr == nullptr) {
         headPtr = newNode;
     } else {
-        // Traverse to the end of the list
-        Node<ItemType>* curPtr = headPtr;
-        while (curPtr->getNext() != nullptr) {
-            curPtr = curPtr->getNext();
+        Node<ItemType>* current = headPtr;
+        while (current->getNext() != nullptr) {
+            current = current->getNext();
         }
-        //newNode at end
-        curPtr->setNext(newNode);
+        current->setNext(newNode);
     }
     itemCount++;
     return true;
 }
 
 template<class ItemType>
-Node<ItemType>* LinkedBag<ItemType>::findKthItem(const int &k) {
+Node<ItemType>* LinkedBag<ItemType>::findKthItem(const int &k) const {
     if (k < 1 || k > itemCount) {
         return nullptr;
     }
-
-    Node<ItemType>* curPtr = headPtr;
-    int index = 1;
-    while (curPtr != nullptr && index < k) {
-        curPtr = curPtr->getNext();
-        index++;
+    Node<ItemType>* current = headPtr;
+    for (int i = 1; i < k; i++) {
+        current = current->getNext();
     }
-    return curPtr;
+    return current;
 }
+
+// Explicit template instantiation
+template class LinkedBag<int>;
+template class LinkedBag<double>;
+template class LinkedBag<std::string>;

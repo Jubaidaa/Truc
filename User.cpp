@@ -1,5 +1,6 @@
 #include "User.h"
 #include <iostream>
+#include <vector>
 
 User::User()
     : username(""), email(""), password(""), bio(""), profilePic("") {}
