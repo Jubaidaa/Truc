@@ -1,3 +1,6 @@
+#include "LinkedBag.h"
+#include "Node.h"
+
 template<class ItemType>
 bool LinkedBag<ItemType>::append(const ItemType& newEntry) {
     Node<ItemType>* newNode = new Node<ItemType>();
