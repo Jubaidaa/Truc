@@ -1,0 +1,67 @@
++----------------------------------+
+|          Instagram340            |
++----------------------------------+
+| - currentUser : User*            |
+|----------------------------------|
+| + mainMenu() : void              |
+| + ...                            |
++----------------------------------+
+
++----------------------------------+
+|              User                |
++----------------------------------+
+| - username : std::string         |
+| - email    : std::string         |
+| - password : std::string         |
+| - bio      : std::string         |
+| - profilePic : std::string       |
+| - posts : LinkedBag<Post*>       |
+|----------------------------------|
+| + displayUserInfo() : void       |
+| + setPassword(pw : std::string)  |
+| + createPost(...) : void         |
+| + displayAllPosts() : void       |
+| + modifyPostTitle(index : int, newTitle : std::string) : void |
+| + editPost(index : int) : void   |
+| + deletePost(index : int) : void |
+| ...                              |
++----------------------------------+
+
+          <<abstract>>
++----------------------------------+
+|              Post                |
++----------------------------------+
+| # title : std::string            |
+| # timestamp : time_t             |
+| # numLikes : int                 |
+| # url : std::string              |
+| # duration : int                 |
+|----------------------------------|
+| + Post(...)                      |
+| + setTitle() : void              |
+| + getTitle() : std::string       |
+| + displayPost() : void           |
+| + virtual edit() : void = 0;     |
+| ...                              |
++----------------------------------+
+                 ^
+                 |
+       +-----------------+
+       |     Reel        |
+       +-----------------+
+       | (duration <=90) |
+       +-----------------+
+       | + edit() : void |
+       +-----------------+
+
+                  ^
+                  |
+       +------------------+
+       |     Story        |
+       +------------------+
+       | (duration <=60)  |
+       | expiration info  |
+       +------------------+
+       | + edit() : void  |
+       | + displayPost()  |
+       +------------------+
