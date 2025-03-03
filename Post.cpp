@@ -3,7 +3,7 @@
 #include <ctime>
 
 Post::Post(const std::string &title, const std::string &url, int duration)
-    : title(title), url(url), duration(duration), numLikes(0)
+    : title(title), timestamp(std::time(nullptr)), numLikes(0), url(url), duration(duration)
 {
     timestamp = std::time(nullptr);  
 }
