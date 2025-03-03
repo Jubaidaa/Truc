@@ -1,0 +1,40 @@
+# Compiler and flags
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -g
+
+# List of object files to build
+OBJECTS = main.o Instagram340.o User.o Post.o Reel.o Story.o
+
+# Name of the final executable
+EXECUTABLE = main.exe
+
+# Default rule
+all: $(EXECUTABLE)
+
+# Link step: build the final executable from the object files
+$(EXECUTABLE): $(OBJECTS)
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+# --- Object File Rules ---
+
+main.o: main.cpp Instagram340.h
+	$(CXX) $(CXXFLAGS) -c main.cpp
+
+Instagram340.o: Instagram340.cpp Instagram340.h User.h
+	$(CXX) $(CXXFLAGS) -c Instagram340.cpp
+
+User.o: User.cpp User.h Post.h LinkedBag.h
+	$(CXX) $(CXXFLAGS) -c User.cpp
+
+Post.o: Post.cpp Post.h
+	$(CXX) $(CXXFLAGS) -c Post.cpp
+
+Reel.o: Reel.cpp Reel.h Post.h
+	$(CXX) $(CXXFLAGS) -c Reel.cpp
+
+Story.o: Story.cpp Story.h Post.h
+	$(CXX) $(CXXFLAGS) -c Story.cpp
+
+# Clean rule to remove intermediate files
+clean:
+	rm -f *.o $(EXECUTABLE)
