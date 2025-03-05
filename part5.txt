@@ -1,0 +1,28 @@
+OOP_Priniciples.txt
+
+---------------------------
+1) Inheritance
+---------------------------
+(1) How it's incorporated:
+   - We have a base class 'Post' containing common attributes (title, url, timestamp, etc.) 
+     and two derived classes: 'Reel' and 'Story'. Each subclass inherits fields and methods 
+     from 'Post' while adding or overriding specialized features—Reels have a 90-second 
+     limit and add AR effects, while Stories have a 60-second limit and expiration time.
+
+(2) Why it's important:
+   - Inheritance avoids repetitive code for shared post functionality, improving 
+     maintainability. It also makes our code more flexible, because introducing new 
+     post types only requires creating another subclass.
+
+---------------------------
+2) Polymorphism
+---------------------------
+(1) How it's incorporated:
+   - 'Post' declares a pure virtual function edit(), which 'Reel' and 'Story' override 
+     differently. We store pointers to 'Post' in our LinkedBag, allowing each derived 
+     object to respond to edit() in its own way.
+
+(2) Why it's important:
+   - Polymorphism enables calling edit() on any type of Post without needing to know 
+     whether it's a Reel or a Story. This simplifies code in the client (like the User 
+     class) and allows easy expansion of the codebase if new post types are introduced.
