@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Post Video - Video Sharing Platform</title>
+</head>
+<body>
+  <!-- Navigation Bar (present on every page) -->
+  <nav>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="login.html">Login</a></li>
+      <li><a href="registration.html">Register</a></li>
+      <li><a href="postvideo.html">Post Video</a></li>
+      <li><a href="viewpost.html">View Post</a></li>
+    </ul>
+  </nav>
+
+  <!-- Section with Form Heading -->
+  <section>
+    <h2>Post a New Video</h2>
+    <form action="postvideo.html" method="post" enctype="multipart/form-data">
+      <label for="post_title">Post Title:</label>
+      <input type="text" id="post_title" name="post_title" required>
+      <br>
+      
+      <label for="post_description">Post Description:</label>
+      <textarea id="post_description" name="post_description" rows="4" cols="50" required></textarea>
+      <br>
+      
+      <label for="video_upload">Upload Video:</label>
+      <input type="file" id="video_upload" name="video_upload" accept="video/*" required>
+      <br>
+      
+      <label>
+        <input type="checkbox" name="acceptable_use" required>
+        I agree to the Acceptable Use Policy for uploading videos.
+      </label>
+      <br>
+      
+      <button type="submit">Post Video</button>
+    </form>
+  </section>
+</body>
+</html>
