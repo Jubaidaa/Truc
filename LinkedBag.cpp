@@ -1,28 +1,27 @@
-#include "LinkedBag.h"
-#include "Node.h"
+#include <iostream>
+#include <memory>
 #include <string>
-#include <vector>
+#include "LinkedBag.h"
+#include "Post.h"
 
-// ======================================================================
-// CONSTRUCTEUR PAR DEFAUT
+// ================== DEFINITIONS DES METHODES TEMPLATES ==================
+
 template<class ItemType>
-LinkedBag<ItemType>::LinkedBag() : headPtr(nullptr), itemCount(0)
+LinkedBag<ItemType>::LinkedBag()
+  : headPtr(nullptr), itemCount(0)
 {
+    std::cout << "[LinkedBag] default constructor\n";
 }
 
-// ======================================================================
-// DESTRUCTEUR
 template<class ItemType>
 LinkedBag<ItemType>::~LinkedBag()
 {
-    clear(); // Supprime tous les noeuds
+    clear();
 }
 
-// ======================================================================
-// CONSTRUCTEUR DE COPIE
 template<class ItemType>
 LinkedBag<ItemType>::LinkedBag(const LinkedBag<ItemType>& aBag)
-    : headPtr(nullptr), itemCount(0)
+  : headPtr(nullptr), itemCount(0)
 {
     Node<ItemType>* curPtr = aBag.headPtr;
     while (curPtr != nullptr) {
@@ -31,14 +30,11 @@ LinkedBag<ItemType>::LinkedBag(const LinkedBag<ItemType>& aBag)
     }
 }
 
-// ======================================================================
-// OPERATEUR=
 template<class ItemType>
 LinkedBag<ItemType>& LinkedBag<ItemType>::operator=(const LinkedBag<ItemType>& aBag)
 {
     if (this != &aBag) {
         clear();
-
         Node<ItemType>* curPtr = aBag.headPtr;
         while (curPtr != nullptr) {
             add(curPtr->getItem());
@@ -48,7 +44,6 @@ LinkedBag<ItemType>& LinkedBag<ItemType>::operator=(const LinkedBag<ItemType>& a
     return *this;
 }
 
-// ======================================================================
 template<class ItemType>
 bool LinkedBag<ItemType>::isEmpty() const
 {
@@ -77,8 +72,8 @@ bool LinkedBag<ItemType>::remove(const ItemType& anEntry)
     Node<ItemType>* curPtr = headPtr;
     while (curPtr != nullptr) {
         if (curPtr->getItem() == anEntry) {
+            // trouvé
             if (prevPtr == nullptr) {
-                // removing head
                 headPtr = curPtr->getNext();
             } else {
                 prevPtr->setNext(curPtr->getNext());
@@ -146,8 +141,6 @@ std::vector<ItemType> LinkedBag<ItemType>::toVector() const
     return bagContents;
 }
 
-// ======================================================================
-// append
 template<class ItemType>
 bool LinkedBag<ItemType>::append(const ItemType& newEntry)
 {
@@ -167,9 +160,8 @@ bool LinkedBag<ItemType>::append(const ItemType& newEntry)
     return true;
 }
 
-// findKthItem
 template<class ItemType>
-Node<ItemType>* LinkedBag<ItemType>::findKthItem(const int &k) const
+Node<ItemType>* LinkedBag<ItemType>::findKthItem(const int& k) const
 {
     if (k < 1 || k > itemCount) {
         return nullptr;
@@ -181,8 +173,14 @@ Node<ItemType>* LinkedBag<ItemType>::findKthItem(const int &k) const
     return current;
 }
 
-// ======================================================================
-// Force l’instanciation de certains types (optionnel)
-template class LinkedBag<int>;
-template class LinkedBag<double>;
+// ================== INSTANTIATIONS EXPLICITES ==================
+//
+// On déclare ici tous les types de LinkedBag<> utilisés dans le programme.
+// Exemple :
+//    LinkedBag<std::string>
+//    LinkedBag<std::shared_ptr<Post>>
+//    LinkedBag<int> (si besoin)
+//
 template class LinkedBag<std::string>;
+template class LinkedBag<std::shared_ptr<Post>>;
+// template class LinkedBag<int>; // décommente si tu utilises LinkedBag<int> ...

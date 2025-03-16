@@ -1,39 +1,25 @@
-# Nom du compilateur
 CXX = g++
-# Options de compilation
 CXXFLAGS = -std=c++11 -Wall -Wextra
 
-# Liste des fichiers .cpp à compiler (sans LinkedBag.cpp si on l'inclut dans .h)
 SOURCES = main.cpp \
           Instagram340.cpp \
           User.cpp \
           Post.cpp \
           Reel.cpp \
           Story.cpp \
-          Node.cpp
+          Node.cpp \
+          LinkedBag.cpp
 
-# Génère la liste des .o correspondants
 OBJECTS = $(SOURCES:.cpp=.o)
-
-# Nom de l'exécutable final
 TARGET = instagram340
 
-# Règle principale : "make" => construit $(TARGET)
 all: $(TARGET)
 
-# Ligne d'édition des liens pour produire l'exécutable
 $(TARGET): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJECTS)
 
-# Règle générique pour compiler les .o à partir des .cpp
-# (gère automatiquement les dépendances de base)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $<
 
-# Cible "clean" pour effacer les fichiers objets et l'exécutable
 clean:
 	rm -f $(OBJECTS) $(TARGET)
-
-# (Optionnel) "make run" pour exécuter directement
-run: all
-	./$(TARGET)

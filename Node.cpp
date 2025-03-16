@@ -1,31 +1,36 @@
-#include "Node.h"
 #include <iostream>
+#include <memory>
+#include <string>
+#include "Node.h"
+#include "Post.h"  // Pour pouvoir instancier Node<std::shared_ptr<Post>>
+
+// ===================== DÉFINITIONS DES MÉTHODES TEMPLATES =====================
 
 template<class ItemType>
 Node<ItemType>::Node()
-  : next(nullptr)
+    : next(nullptr)
 {
-    std::cout << "--- Node() default constructor ---" << std::endl;
+    std::cout << "[Node] default constructor\n";
 }
 
 template<class ItemType>
 Node<ItemType>::Node(const ItemType& anItem)
-  : item(anItem), next(nullptr)
+    : item(anItem), next(nullptr)
 {
-    std::cout << "--- Node(anItem) constructor ---" << std::endl;
+    std::cout << "[Node] constructor with anItem\n";
 }
 
 template<class ItemType>
 Node<ItemType>::Node(const ItemType& anItem, Node<ItemType>* nextNodePtr)
-  : item(anItem), next(nextNodePtr)
+    : item(anItem), next(nextNodePtr)
 {
-    std::cout << "--- Node(anItem, nextPtr) constructor ---" << std::endl;
+    std::cout << "[Node] constructor with anItem + next\n";
 }
 
 template<class ItemType>
 Node<ItemType>::~Node()
 {
-    std::cout << "--- Destroying bag node ... " << std::endl;
+    std::cout << "[Node] destructor\n";
 }
 
 template<class ItemType>
@@ -52,7 +57,16 @@ Node<ItemType>* Node<ItemType>::getNext() const
     return next;
 }
 
-// Instanciation explicite (exemple)
-template class Node<int>;
-template class Node<double>;
-// etc. Pour chaque type de Node<ItemType> que tu utilises
+// ===================== INSTANTIATIONS EXPLICITES =====================
+//
+// Ici, tu dois lister TOUTES les versions dont tu as besoin.
+// Par exemple:
+//
+//  - Node<std::string>
+//  - Node<std::shared_ptr<Post>>
+//  - Node<int> (si tu en as besoin ailleurs)
+// 
+// Si tu oublies un type que tu utilises, tu auras un undefined reference.
+template class Node<std::string>;
+template class Node<std::shared_ptr<Post>>;
+// template class Node<int>;  // Décommente si tu utilises Node<int>

@@ -7,15 +7,15 @@
 template<class ItemType>
 class LinkedBag {
 private:
-   Node<ItemType>* headPtr; // Pointer to first node
-   int itemCount;           // Number of items
+   Node<ItemType>* headPtr; // Pointeur vers le premier Node
+   int itemCount;           // Nombre d'items
 
 public:
    LinkedBag();
    ~LinkedBag();
 
    // Big 3
-   LinkedBag(const LinkedBag<ItemType>& aBag); 
+   LinkedBag(const LinkedBag<ItemType>& aBag);
    LinkedBag<ItemType>& operator=(const LinkedBag<ItemType>& aBag);
 
    bool isEmpty() const;
@@ -28,11 +28,8 @@ public:
    int getFrequencyOf(const ItemType& anEntry) const;
    std::vector<ItemType> toVector() const;
 
-   // The new methods:
    bool append(const ItemType& newEntry);
    Node<ItemType>* findKthItem(const int& k) const;
 };
-
-#include "LinkedBag.cpp" // Inclusion du .cpp pour les templates
 
 #endif
