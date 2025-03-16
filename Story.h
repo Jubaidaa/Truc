@@ -5,16 +5,13 @@
 
 class Story : public Post {
 private:
-    time_t expirationTime;  
+    time_t expirationTime;
 
 public:
     Story(const std::string &title, const std::string &url, int duration);
     virtual ~Story() = default;
 
-    // Override the edit operation
     void edit() override;
-
-    // Display
     void displayPost() const override;
 };
 

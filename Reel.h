@@ -8,10 +8,10 @@ public:
     Reel(const std::string &title, const std::string &url, int duration);
     virtual ~Reel() = default;
 
-    // Override the edit operation
+    // Override de la méthode edit()
     void edit() override;
 
-    // Display
+    // Affichage
     void displayPost() const override;
 };
 
