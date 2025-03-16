@@ -1,47 +1,58 @@
-//  Created by Frank M. Carrano and Timothy M. Henry.
-//  Copyright (c) 2017 Pearson Education, Hoboken, New Jersey.
-
-/** @file Node.cpp 
-	 Listing 4-2 */
 #include "Node.h"
-#include <ostream>
 #include <iostream>
-//#include <cstddef>
 
 template<class ItemType>
-Node<ItemType>::Node() : next(nullptr)
-	{} // end default constructor
-
-template<class ItemType>
-Node<ItemType>::Node(const ItemType& anItem) : item(anItem), next(nullptr)
-	{} // end constructor
-
-template<class ItemType>
-Node<ItemType>::Node(const ItemType& anItem, Node<ItemType>* nextNodePtr) :
-					item(anItem), next(nextNodePtr)
-	{} // end constructor
-
-template<class ItemType>
-Node<ItemType>::~Node(){
-	std::cout << "--- Destroying bag node ... " << std::endl;
+Node<ItemType>::Node()
+  : next(nullptr)
+{
+    std::cout << "--- Node() default constructor ---" << std::endl;
 }
 
 template<class ItemType>
-void Node<ItemType>::setItem(const ItemType& anItem){
-	item = anItem;
-} // end setItem
+Node<ItemType>::Node(const ItemType& anItem)
+  : item(anItem), next(nullptr)
+{
+    std::cout << "--- Node(anItem) constructor ---" << std::endl;
+}
 
 template<class ItemType>
-void Node<ItemType>::setNext(Node<ItemType>* nextNodePtr){
-	next = nextNodePtr;
-} // end setNext
+Node<ItemType>::Node(const ItemType& anItem, Node<ItemType>* nextNodePtr)
+  : item(anItem), next(nextNodePtr)
+{
+    std::cout << "--- Node(anItem, nextPtr) constructor ---" << std::endl;
+}
 
 template<class ItemType>
-ItemType Node<ItemType>::getItem() const{
-	return item;
-} // end getItem
+Node<ItemType>::~Node()
+{
+    std::cout << "--- Destroying bag node ... " << std::endl;
+}
 
 template<class ItemType>
-Node<ItemType>* Node<ItemType>::getNext() const{
-	return next;
-} // end getNext
+void Node<ItemType>::setItem(const ItemType& anItem)
+{
+    item = anItem;
+}
+
+template<class ItemType>
+void Node<ItemType>::setNext(Node<ItemType>* nextNodePtr)
+{
+    next = nextNodePtr;
+}
+
+template<class ItemType>
+ItemType Node<ItemType>::getItem() const
+{
+    return item;
+}
+
+template<class ItemType>
+Node<ItemType>* Node<ItemType>::getNext() const
+{
+    return next;
+}
+
+// Instanciation explicite (exemple)
+template class Node<int>;
+template class Node<double>;
+// etc. Pour chaque type de Node<ItemType> que tu utilises
