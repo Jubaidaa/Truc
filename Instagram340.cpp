@@ -3,15 +3,45 @@
 #include "Story.h"
 #include <iostream>
 
-Instagram340::Instagram340() : currentUser(nullptr) {}
+// =============== Big 3 =====================
 
-Instagram340::~Instagram340() {
-    delete currentUser;
+// Constructeur par défaut
+Instagram340::Instagram340() 
+    : currentUser(nullptr)
+{
 }
 
-void Instagram340::runInstagram() {
-    bool done = false;
+// Destructeur
+Instagram340::~Instagram340() {
+    // shared_ptr se détruit automatiquement
+}
 
+// Constructeur de copie
+Instagram340::Instagram340(const Instagram340& other) {
+    // Copie du currentUser (shared_ptr = copie de la référence partagée)
+    currentUser = other.currentUser;
+}
+
+// Opérateur d’affectation
+Instagram340& Instagram340::operator=(const Instagram340& other) {
+    if (this != &other) {
+        currentUser = other.currentUser;
+    }
+    return *this;
+}
+
+// =============== Surcharge << =====================
+std::ostream& operator<<(std::ostream& os, const Instagram340& insta) {
+    os << "Welcome to Instagram 340!\n";
+    return os;
+}
+
+// =============== runInstagram() ===================
+void Instagram340::runInstagram() {
+    // Affiche le message via la surcharge <<
+    std::cout << *this;
+
+    bool done = false;
     while (!done) {
         std::cout << "\nMenu:\n"
                   << "1. Create Profile\n"
@@ -44,12 +74,8 @@ void Instagram340::runInstagram() {
             std::cout << "Enter profile pic: ";
             std::cin >> pic;
 
-            // If already had a user, delete first
-            if (currentUser) {
-                delete currentUser;
-                currentUser = nullptr;
-            }
-            currentUser = new User(uName, em, pw, b, pic);
+            // On crée un nouvel User en shared_ptr
+            currentUser = std::make_shared<User>(uName, em, pw, b, pic);
             break;
         }
         case 2: {
@@ -93,11 +119,11 @@ void Instagram340::runInstagram() {
             std::cout << "Duration (sec): ";
             std::cin >> duration;
 
-            Post* newPost = nullptr;
+            std::shared_ptr<Post> newPost;
             if (postType == 1) {
-                newPost = new Reel(title, url, duration);
+                newPost = std::make_shared<Reel>(title, url, duration);
             } else {
-                newPost = new Story(title, url, duration);
+                newPost = std::make_shared<Story>(title, url, duration);
             }
             currentUser->createPost(newPost);
             break;
@@ -124,6 +150,7 @@ void Instagram340::runInstagram() {
             break;
         }
         case 7: {
+            // Modify Post Title
             if (currentUser) {
                 int k;
                 std::string newT;
@@ -141,6 +168,7 @@ void Instagram340::runInstagram() {
             break;
         }
         case 8: {
+            // Edit Post
             if (currentUser) {
                 int k;
                 std::cout << "Enter Post index to edit: ";
