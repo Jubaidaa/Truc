@@ -181,6 +181,7 @@ Node<ItemType>* LinkedBag<ItemType>::findKthItem(const int& k) const
 //    LinkedBag<std::shared_ptr<Post>>
 //    LinkedBag<int> (si besoin)
 //
+template class LinkedBag<int>;
+template class LinkedBag<double>;
 template class LinkedBag<std::string>;
 template class LinkedBag<std::shared_ptr<Post>>;
-// template class LinkedBag<int>; // décommente si tu utilises LinkedBag<int> ...

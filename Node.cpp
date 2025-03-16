@@ -67,6 +67,8 @@ Node<ItemType>* Node<ItemType>::getNext() const
 //  - Node<int> (si tu en as besoin ailleurs)
 // 
 // Si tu oublies un type que tu utilises, tu auras un undefined reference.
+// template class Node<int>;  // Décommente si tu utilises Node<int>
+template class Node<int>;
+template class Node<double>;
 template class Node<std::string>;
 template class Node<std::shared_ptr<Post>>;
-// template class Node<int>;  // Décommente si tu utilises Node<int>
