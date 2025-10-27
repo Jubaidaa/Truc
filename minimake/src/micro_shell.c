@@ -1,49 +1,34 @@
-#include <assert.h>
-#include <err.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-int main(int argc, char **argv)
+int micro_shell(const char *cmd)
 {
-    pid_t pid;
-    int wstatus;
-
-    if (argc != 2)
-    {
-        fprintf(stderr, "faut faire: %s 'command'\n", argv[0]);
-        return 1;
-    }
-
-    pid = fork();
-    if (pid < 0)
-    {
-        err(1, "fork");
-    }
-
+    int status;
+    fflush(stdout);
+    fflush(stderr);
+    pid_t pid = fork();
     if (pid == 0)
     {
-        execl("/bin/sh", "micro_shell", "-c", argv[1], NULL);
-        err(1, "execl");
+        execl("/bin/sh", "supershell", "-c", cmd, NULL);
+        fprintf(stderr, "exec failed: %s\n", strerror(errno));
+        _exit(1);
     }
-
-    if (waitpid(pid, &wstatus, 0) < 0)
+    if (pid < 0)
     {
-        err(1, "waitpid");
-    }
-
-    if (WIFEXITED(wstatus))
-    {
-        printf("process exit status: %d\n", WEXITSTATUS(wstatus));
-    }
-    else
-    {
-        fprintf(stderr, "process a fait un truc zarbi\n");
+        fprintf(stderr, "fork failed: %s\n", strerror(errno));
         return 1;
     }
-
-    return 0;
+    waitpid(pid, &status, 0);
+    fflush(stdout);
+    fflush(stderr);
+    if (WIFEXITED(status))
+    {
+        return WEXITSTATUS(status);
+    }
+    return 1;
 }

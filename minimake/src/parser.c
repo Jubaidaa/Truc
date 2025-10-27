@@ -31,9 +31,9 @@ static char *lstrip(char *s)
     return s + i;
 }
 
-/* ${VAR} -> $(VAR), $$ -> $ */
 static void norm_vars(FILE *out, const char *s)
 {
+    char name[256];
     for (size_t i = 0; s[i] != '\0';)
     {
         if (s[i] == '$' && s[i + 1] == '$')
@@ -44,17 +44,27 @@ static void norm_vars(FILE *out, const char *s)
         }
         if (s[i] == '$' && s[i + 1] == '{')
         {
-            fputc('$', out);
-            fputc('(', out);
+            size_t j = 0;
             i += 2;
-            while (s[i] && s[i] != '}')
+            while (s[i] && s[i] != '}' && j + 1 < sizeof(name))
             {
-                fputc(s[i++], out);
+                name[j++] = s[i++];
             }
+            name[j] = '\0';
             if (s[i] == '}')
             {
-                fputc(')', out);
                 i++;
+            }
+            {
+                const char *val = getenv(name);
+                if (val)
+                {
+                    fputs(val, out);
+                }
+                else
+                {
+                    fprintf(out, "$(%s)", name);
+                }
             }
             continue;
         }
@@ -62,7 +72,6 @@ static void norm_vars(FILE *out, const char *s)
     }
 }
 
-/* remove comment starting at '#' */
 static void strip_comment(char *line)
 {
     for (int i = 0; line[i]; i++)
@@ -75,7 +84,6 @@ static void strip_comment(char *line)
     }
 }
 
-/* split rhs by spaces/tabs */
 static void no_tab_n_empty(FILE *out, const char *rhs)
 {
     for (size_t i = 0; rhs[i] != '\0';)
@@ -88,17 +96,18 @@ static void no_tab_n_empty(FILE *out, const char *rhs)
         {
             break;
         }
-        size_t start = i;
-        while (rhs[i] && rhs[i] != ' ' && rhs[i] != '\t')
         {
-            i++;
+            size_t start = i;
+            while (rhs[i] && rhs[i] != ' ' && rhs[i] != '\t')
+            {
+                i++;
+            }
+            fwrite(rhs + start, 1, i - start, out);
+            fputc('\n', out);
         }
-        fwrite(rhs + start, 1, i - start, out);
-        fputc('\n', out);
     }
 }
 
-/* find first '=' or ':' */
 static int assign_or_col(const char *line)
 {
     for (int i = 0; line[i]; i++)
@@ -121,7 +130,6 @@ static void assignment(FILE *out, char *lhs, char *rhs)
 {
     char *L = rstrip(lstrip(lhs));
     char *R = lstrip(rhs);
-
     norm_vars(out, L);
     fputs("=\n", out);
     norm_vars(out, R);
@@ -132,7 +140,6 @@ static void target(FILE *out, char *lhs, char *rhs)
 {
     char *L = rstrip(lstrip(lhs));
     char *R = lstrip(rhs);
-
     norm_vars(out, L);
     fputs(":\n", out);
     no_tab_n_empty(out, R);
@@ -142,80 +149,69 @@ static void process_line(FILE *out, char *raw, int *wrote_blank)
 {
     rstrip(raw);
     strip_comment(raw);
-    char *line = lstrip(raw);
-
-    if (!line[0])
     {
-        return;
-    }
-
-    if (*wrote_blank)
-    {
+        char *line = lstrip(raw);
+        if (!line[0])
+        {
+            return;
+        }
+        if (*wrote_blank)
+        {
+            fputc('\n', out);
+        }
+        *wrote_blank = 1;
+        if (line[0] == '\t')
+        {
+            recipe(out, line);
+            return;
+        }
+        {
+            int index = assign_or_col(line);
+            if (index >= 0)
+            {
+                char sym = line[index];
+                line[index] = '\0';
+                {
+                    char *lhs = line;
+                    char *rhs = line + index + 1;
+                    if (sym == '=')
+                    {
+                        assignment(out, lhs, rhs);
+                    }
+                    else
+                    {
+                        target(out, lhs, rhs);
+                    }
+                }
+                return;
+            }
+        }
+        norm_vars(out, line);
         fputc('\n', out);
     }
-    *wrote_blank = 1;
-
-    if (line[0] == '\t')
-    {
-        recipe(out, line);
-        return;
-    }
-
-    int index = assign_or_col(line);
-    if (index >= 0)
-    {
-        char sym = line[index];
-        line[index] = '\0';
-        char *lhs = line;
-        char *rhs = line + index + 1;
-
-        if (sym == '=')
-        {
-            assignment(out, lhs, rhs);
-        }
-        else
-        {
-            target(out, lhs, rhs);
-        }
-        return;
-    }
-
-    norm_vars(out, line);
-    fputc('\n', out);
 }
 
-int main(int argc, char **argv)
+int parse_file(const char *filename)
 {
-    if (argc != 2)
-    {
-        fprintf(stderr, "Usage: %s <Makefile>\n", argv[0]);
-        return 1;
-    }
-
-    FILE *in = fopen(argv[1], "r");
+    FILE *in = fopen(filename, "r");
     if (!in)
     {
-        fprintf(stderr, "Cannot open %s: %s\n", argv[1], strerror(errno));
+        fprintf(stderr, "Cannot open %s: %s\n", filename, strerror(errno));
         return 1;
     }
-
     FILE *out = fopen("rule.txt", "w");
     if (!out)
     {
-        fprintf(stderr, "Cannot create rule.txt: %s\n", argv[1],
-                strerror(errno));
+        fprintf(stderr, "Cannot create rule.txt: %s\n", strerror(errno));
         fclose(in);
         return 1;
     }
-
     char buf[4096];
     int wrote_blank = 0;
-
     while (fgets(buf, sizeof(buf), in))
     {
         process_line(out, buf, &wrote_blank);
     }
-
     fputc('\n', out);
     fclose(in);
     fclose(out);
