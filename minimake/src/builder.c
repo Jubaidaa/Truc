@@ -177,7 +177,7 @@ static char *expand_once(const char *in, const struct variable *vars,
 char *expand_variables(const char *line, const struct variable *vars,
                        const struct rule *ctx)
 {
-    char *prev = strdup(line);
+    char *prev = xstrdup(line);
     for (int depth = 0; depth < 10; depth++)
     {
         char *next = expand_once(prev, vars, ctx);
