@@ -106,6 +106,16 @@ static void add_rule_to_list(struct rule *r, struct rule **rules,
     *rtail = r;
 }
 
+static int ends_with(const char *str, char c)
+{
+    if (!str || !str[0])
+    {
+        return 0;
+    }
+    size_t len = strlen(str);
+    return str[len - 1] == c;
+}
+
 int parse_rule_file(const char *path, struct variable **vars,
                     struct rule **rules)
 {
@@ -120,34 +130,23 @@ int parse_rule_file(const char *path, struct variable **vars,
     struct variable *vtail = NULL;
     struct rule *rtail = NULL;
     struct rule *current_rule = NULL;
-    size_t dep_count = 0;
     size_t cmd_count = 0;
 
     char *line;
     while ((line = read_line(f)))
     {
-        fprintf(stderr, "[DEBUG] Read line: '%s'\n", line);
-        
         if (line[0] == '\0')
         {
-            fprintf(stderr, "[DEBUG] Empty line - resetting current_rule\n");
             current_rule = NULL;
-            dep_count = 0;
             cmd_count = 0;
             free(line);
             continue;
         }
 
-        char *next = read_line(f);
-        if (next)
+        if (ends_with(line, '='))
         {
-            fprintf(stderr, "[DEBUG] Next line: '%s'\n", next);
-        }
-        
-        if (next && !strcmp(next, "="))
-        {
+            line[strlen(line) - 1] = '\0';
             char *value = read_line(f);
-            fprintf(stderr, "[DEBUG] Variable: %s = %s\n", line, value ? value : "(null)");
             
             struct variable *v = malloc(sizeof(*v));
             if (!v)
@@ -155,8 +154,8 @@ int parse_rule_file(const char *path, struct variable **vars,
                 fprintf(stderr, "malloc failed\n");
                 exit(1);
             }
-            v->name = line;
-            v->value = value;
+            v->name = xstrdup(line);
+            v->value = value ? value : xstrdup("");
             v->next = NULL;
 
             if (!*vars)
@@ -168,61 +167,39 @@ int parse_rule_file(const char *path, struct variable **vars,
                 vtail->next = v;
             }
             vtail = v;
-            free(next);
-            continue;
-        }
-        
-        if (next && !strcmp(next, ":"))
-        {
-            fprintf(stderr, "[DEBUG] Target: %s\n", line);
-            struct rule *r = create_rule(line);
-            add_rule_to_list(r, rules, &rtail);
-            current_rule = r;
-            dep_count = 0;
-            cmd_count = 0;
-            free(next);
-            
-            while ((line = read_line(f)) && line[0] != '\0')
-            {
-                fprintf(stderr, "[DEBUG]   Dependency: %s\n", line);
-                add_dep(&current_rule->deps, &dep_count, line);
-                free(line);
-            }
             free(line);
             continue;
         }
-        
+
+        if (ends_with(line, ':'))
+        {
+            line[strlen(line) - 1] = '\0';
+            
+            struct rule *r = create_rule(xstrdup(line));
+            add_rule_to_list(r, rules, &rtail);
+            current_rule = r;
+            cmd_count = 0;
+            free(line);
+            
+            size_t dep_count = 0;
+            char *dep;
+            while ((dep = read_line(f)) && dep[0] != '\0')
+            {
+                add_dep(&current_rule->deps, &dep_count, dep);
+                free(dep);
+            }
+            free(dep);
+            continue;
+        }
+
         if (current_rule && line[0] != '\0')
         {
-            fprintf(stderr, "[DEBUG]   Command: %s\n", line);
             add_cmd(&current_rule->cmds, &cmd_count, line);
+            free(line);
+            continue;
         }
-        
-        free(line);
-        if (next)
-        {
-            free(next);
-        }
-    }
 
-    fprintf(stderr, "[DEBUG] === Parsed rules ===\n");
-    for (struct rule *r = *rules; r; r = r->next)
-    {
-        fprintf(stderr, "[DEBUG] Rule: %s\n", r->target);
-        if (r->deps)
-        {
-            for (int i = 0; r->deps[i]; i++)
-            {
-                fprintf(stderr, "[DEBUG]   dep: %s\n", r->deps[i]);
-            }
-        }
-        if (r->cmds)
-        {
-            for (int i = 0; r->cmds[i]; i++)
-            {
-                fprintf(stderr, "[DEBUG]   cmd: %s\n", r->cmds[i]);
-            }
-        }
+        free(line);
     }
 
     fclose(f);
