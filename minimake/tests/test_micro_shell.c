@@ -1,7 +1,7 @@
 #include <criterion/criterion.h>
 #include <criterion/redirect.h>
 #include <unistd.h>
-#include "../src/micro_shell.c"
+#include "../src/micro_shell.h"
 
 static void redirect_all(void)
 {

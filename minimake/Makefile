@@ -1,6 +1,6 @@
 CC      = gcc
 CFLAGS  = -std=c99 -pedantic -Werror -Wall -Wextra -Wvla
-SRC     = src/main.c src/parser.c src/builder.c src/micro_shell.c src/aux_builder.c src/simple_ls.c src/utils.c
+SRC     = src/main.c src/parser.c src/builder.c src/aux_builder.c src/micro_shell.c src/utils.c
 BIN     = minimake
 
 .PHONY: all check clean
@@ -13,12 +13,11 @@ $(BIN): $(SRC)
 check:
 	$(CC) $(CFLAGS) tests/test_micro_shell.c src/micro_shell.c -lcriterion -o tests/test_micro_shell
 	$(CC) $(CFLAGS) tests/test_parser.c src/parser.c -lcriterion -o tests/test_parser
-	$(CC) $(CFLAGS) tests/test_builder.c src/builder.c src/micro_shell.c src/simple_ls.c src/utils.c -lcriterion -o tests/test_builder
-	$(CC) $(CFLAGS) tests/test_aux_builder.c src/aux_builder.c src/utils.c -lcriterion -o tests/test_aux_builder
+	$(CC) $(CFLAGS) tests/test_builder.c src/builder.c src/aux_builder.c src/micro_shell.c src/utils.c -lcriterion -o tests/test_builder
 	./tests/test_micro_shell
 	./tests/test_parser
 	./tests/test_builder
-	./tests/test_aux_builder
 
 clean:
-	$(RM) $(BIN) tests/test_micro_shell tests/test_parser tests/test_builder tests/test_aux_builder rule.txt test_rule.txt
+	$(RM) $(BIN) tests/test_micro_shell tests/test_parser tests/test_builder rule.txt
+

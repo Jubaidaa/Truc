@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "../src/parser.c"
+#include "../src/parser.h"
 
 static void redirect_all(void)
 {

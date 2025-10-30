@@ -92,19 +92,28 @@ static int newer_than(const char *target, char **deps)
 static int execute_command(const char *cmd)
 {
     const char *run = cmd;
+
     if (cmd[0] == '@')
     {
         run = cmd + 1;
+        while (*run == ' ' || *run == '\t')
+        {
+            run++;
+        }
     }
     else
     {
         printf("%s\n", cmd);
     }
+
     fflush(stdout);
     fflush(stderr);
+
     int ret = micro_shell(run);
+
     fflush(stdout);
     fflush(stderr);
+
     return ret;
 }
 
