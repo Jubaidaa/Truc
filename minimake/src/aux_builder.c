@@ -92,8 +92,14 @@ static void parse_rule_deps(FILE *f, struct rule *r)
 
 static struct rule *create_rule(char *line)
 {
+    size_t len = strlen(line);
+    if (len > 0 && line[len - 1] == ':')
+    {
+        line[len - 1] = '\0';
+    }
+
     struct rule *r = malloc(sizeof(*r));
-    r->target = line;
+    r->target = xstrdup(line);
     r->deps = NULL;
     r->cmds = NULL;
     r->phony = !strcmp(line, ".PHONY");
@@ -249,3 +255,4 @@ void free_rules(struct rule *rules)
         rules = next;
     }
 }
+
