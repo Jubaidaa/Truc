@@ -7,7 +7,23 @@
 
 #include "builder.h"
 #include "micro_shell.h"
-#include "utils.h"
+
+static char *xstrdup(const char *s)
+{
+    if (!s)
+    {
+        return NULL;
+    }
+    size_t n = strlen(s) + 1;
+    char *p = malloc(n);
+    if (!p)
+    {
+        fprintf(stderr, "malloc failed\n");
+        exit(1);
+    }
+    memcpy(p, s, n);
+    return p;
+}
 
 static int check_in_directory(const char *dirname, const char *filename)
 {
@@ -89,70 +105,6 @@ static int newer_than(const char *target, char **deps)
     return 0;
 }
 
-static int execute_command(const char *cmd)
-{
-    const char *run = cmd;
-
-    if (cmd[0] == '@')
-    {
-        run = cmd + 1;
-        while (*run == ' ' || *run == '\t')
-        {
-            run++;
-        }
-    }
-    else
-    {
-        printf("%s\n", cmd);
-    }
-
-    fflush(stdout);
-    fflush(stderr);
-
-    int ret = micro_shell(run);
-
-    fflush(stdout);
-    fflush(stderr);
-
-    return ret;
-}
-
-static char *join_with_space(char **items)
-{
-    size_t total = 0;
-    size_t count = 0;
-    if (!items)
-    {
-        return xstrdup("");
-    }
-    for (size_t i = 0; items[i]; i++)
-    {
-        total += strlen(items[i]);
-        count++;
-    }
-    if (count == 0)
-    {
-        return xstrdup("");
-    }
-    total += count - 1;
-    char *out = malloc(total + 1);
-    if (!out)
-    {
-        fprintf(stderr, "malloc failed\n");
-        exit(1);
-    }
-    out[0] = '\0';
-    for (size_t i = 0; items[i]; i++)
-    {
-        if (i > 0)
-        {
-            strcat(out, " ");
-        }
-        strcat(out, items[i]);
-    }
-    return out;
-}
-
 const char *get_variable(const struct variable *vars, const char *name)
 {
     for (const struct variable *v = vars; v; v = v->next)
@@ -166,41 +118,86 @@ const char *get_variable(const struct variable *vars, const char *name)
     return env ? env : "";
 }
 
-static void expand_automatic(char *out, const char *in, size_t *i,
-                              const struct rule *ctx)
+static char *join_with_space(char **items)
 {
-    if (in[*i + 1] == '@' && ctx)
+    if (!items)
     {
-        strcat(out, ctx->target);
-        *i += 2;
-        return;
+        return xstrdup("");
     }
-    if (in[*i + 1] == '<' && ctx && ctx->deps && ctx->deps[0])
+
+    size_t total = 0;
+    size_t count = 0;
+    for (size_t i = 0; items[i]; i++)
     {
-        strcat(out, ctx->deps[0]);
-        *i += 2;
-        return;
+        total += strlen(items[i]);
+        count++;
     }
-    if (in[*i + 1] == '^' && ctx)
+    if (count == 0)
     {
-        char *joined = join_with_space(ctx->deps);
-        strcat(out, joined);
+        return xstrdup("");
+    }
+
+    total += count - 1;
+    char *out = malloc(total + 1);
+    if (!out)
+    {
+        fprintf(stderr, "malloc failed\n");
+        exit(1);
+    }
+
+    out[0] = '\0';
+    for (size_t i = 0; items[i]; i++)
+    {
+        if (i > 0)
+        {
+            strcat(out, " ");
+        }
+        strcat(out, items[i]);
+    }
+    return out;
+}
+
+static void handle_auto_var(const char *in, size_t *i, char **out,
+                            size_t *cap, const struct rule *ctx)
+{
+    const char *val = "";
+    if (in[*i + 1] == '@')
+    {
+        val = ctx ? ctx->target : "";
+    }
+    else if (in[*i + 1] == '<')
+    {
+        val = (ctx && ctx->deps && ctx->deps[0]) ? ctx->deps[0] : "";
+    }
+    else if (in[*i + 1] == '^')
+    {
+        char *joined = ctx ? join_with_space(ctx->deps) : xstrdup("");
+        size_t need = strlen(*out) + strlen(joined) + 1;
+        if (need > *cap)
+        {
+            *cap = need + 64;
+            *out = realloc(*out, *cap);
+        }
+        strcat(*out, joined);
         free(joined);
         *i += 2;
         return;
     }
+    size_t need = strlen(*out) + strlen(val) + 1;
+    if (need > *cap)
+    {
+        *cap = need + 64;
+        *out = realloc(*out, *cap);
+    }
+    strcat(*out, val);
+    *i += 2;
 }
 
-static void expand_variable_ref(char *out, const char *in, size_t *i,
-                                const struct variable *vars)
+static void handle_var_ref(const char *in, size_t *i, char **out,
+                           size_t *cap, const struct variable *vars)
 {
-    if (in[*i + 1] != '(')
-    {
-        return;
-    }
-
-    char name[256];
     size_t j = *i + 2;
+    char name[256];
     size_t k = 0;
     while (in[j] && in[j] != ')' && k + 1 < sizeof(name))
     {
@@ -209,15 +206,20 @@ static void expand_variable_ref(char *out, const char *in, size_t *i,
     name[k] = '\0';
     if (in[j] == ')')
     {
-        j++;
+        const char *val = get_variable(vars, name);
+        size_t need = strlen(*out) + strlen(val) + 1;
+        if (need > *cap)
+        {
+            *cap = need + 64;
+            *out = realloc(*out, *cap);
+        }
+        strcat(*out, val);
+        *i = j + 1;
     }
-    const char *val = get_variable(vars, name);
-    strcat(out, val);
-    *i = j;
 }
 
-static char *expand_once(const char *in, const struct variable *vars,
-                         const struct rule *ctx)
+char *expand_variables(const char *in, const struct variable *vars,
+                       const struct rule *ctx)
 {
     size_t i = 0;
     size_t cap = strlen(in) + 128;
@@ -232,15 +234,14 @@ static char *expand_once(const char *in, const struct variable *vars,
     {
         if (in[i] == '$')
         {
-            size_t before = i;
-            expand_automatic(out, in, &i, ctx);
-            if (i != before)
+            if (in[i + 1] == '@' || in[i + 1] == '<' || in[i + 1] == '^')
             {
+                handle_auto_var(in, &i, &out, &cap, ctx);
                 continue;
             }
-            expand_variable_ref(out, in, &i, vars);
-            if (i != before)
+            if (in[i + 1] == '(')
             {
+                handle_var_ref(in, &i, &out, &cap, vars);
                 continue;
             }
         }
@@ -257,51 +258,114 @@ static char *expand_once(const char *in, const struct variable *vars,
     return out;
 }
 
-char *expand_variables(const char *line, const struct variable *vars,
-                       const struct rule *ctx)
+static int execute_command(const char *cmd)
 {
-    char *prev = xstrdup(line);
-    for (int depth = 0; depth < 10; depth++)
+    const char *run = cmd;
+    if (cmd[0] == '@')
     {
-        char *next = expand_once(prev, vars, ctx);
-        if (!strcmp(next, prev))
+        run = cmd + 1;
+        while (*run == ' ' || *run == '\t')
         {
-            free(prev);
-            return next;
+            run++;
         }
-        free(prev);
-        prev = next;
     }
-    return prev;
+    else
+    {
+        printf("%s\n", cmd);
+    }
+
+    fflush(stdout);
+    fflush(stderr);
+    int ret = micro_shell(run);
+    fflush(stdout);
+    fflush(stderr);
+    return ret;
 }
 
-static int check_dependencies(struct rule *rules, struct rule *r)
+static int is_variable_reference(const char *str)
+{
+    if (!str || str[0] != '$')
+    {
+        return 0;
+    }
+    if (str[1] == '(')
+    {
+        return 1;
+    }
+    return 0;
+}
+
+static int check_dependencies(struct rule *rules, struct variable *vars,
+                              struct rule *r)
 {
     if (!r->deps)
     {
         return 0;
     }
 
-    for (int i = 0; r->deps[i]; i++)
+    for (size_t i = 0; r->deps[i]; i++)
     {
-        struct rule *dr = find_rule(rules, r->deps[i]);
-        if (dr)
+        char *expanded = expand_variables(r->deps[i], vars, r);
+        
+        if (is_variable_reference(r->deps[i]))
         {
-            int ret = build_rule_inner(rules, NULL, dr);
-            if (ret)
+            char *token = strtok(expanded, " \t\n");
+            while (token)
             {
-                return 2;
+                struct rule *dr = find_rule(rules, token);
+                if (dr)
+                {
+                    int ret = build_rule_inner(rules, vars, dr);
+                    if (ret)
+                    {
+                        free(expanded);
+                        return ret;
+                    }
+                }
+                else if (!file_exists(token))
+                {
+                    fprintf(stderr,
+                            "minimake: *** No rule to make target '%s'. Stop.\n",
+                            token);
+                    free(expanded);
+                    return 2;
+                }
+                token = strtok(NULL, " \t\n");
             }
         }
         else
         {
-            if (!file_exists(r->deps[i]))
+            struct rule *dr = find_rule(rules, expanded);
+            if (dr)
             {
-                fprintf(stderr,
-                        "minimake: *** No rule to make target '%s'. Stop.\n",
-                        r->deps[i]);
-                return 2;
+                int ret = build_rule_inner(rules, vars, dr);
+                free(expanded);
+                if (ret)
+                {
+                    return ret;
+                }
             }
+            else
+            {
+                if (!file_exists(expanded))
+                {
+                    fprintf(stderr,
+                            "minimake: *** No rule to make target '%s'. Stop.\n",
+                            expanded);
+                    free(expanded);
+                    return 2;
+                }
+                free(expanded);
+            }
+        }
+        
+        if (is_variable_reference(r->deps[i]))
+        {
+            free(expanded);
+        }
+        else
+        {
+            free(expanded);
         }
     }
     return 0;
@@ -314,14 +378,14 @@ static int execute_commands(struct rule *r, struct variable *vars)
         return 0;
     }
 
-    for (int i = 0; r->cmds[i]; i++)
+    for (size_t i = 0; r->cmds[i]; i++)
     {
         char *expanded = expand_variables(r->cmds[i], vars, r);
         int ret = execute_command(expanded);
         free(expanded);
         if (ret)
         {
-            return 2;
+            return ret;
         }
     }
     return 0;
@@ -343,9 +407,10 @@ int build_rule_inner(struct rule *rules, struct variable *vars,
     {
         return 0;
     }
+
     r->visiting = 1;
 
-    int ret = check_dependencies(rules, r);
+    int ret = check_dependencies(rules, vars, r);
     if (ret)
     {
         r->visiting = 0;
