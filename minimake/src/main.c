@@ -52,6 +52,7 @@ struct build_ctx
 static int build_targets(struct build_ctx *ctx)
 {
     int ret = 0;
+    int any_rebuilt = 0;
     if (ctx->start == -1)
     {
         if (ctx->rules)
@@ -64,10 +65,14 @@ static int build_targets(struct build_ctx *ctx)
         if (ctx->argv[i][0] == '-')
             continue;
         ret = build_rule(ctx->rules, ctx->vars, ctx->argv[i]);
-        if (ret)
+        if (ret == 0)
+            any_rebuilt = 1;
+        if (ret != 0 && ret != 1)
             break;
     }
-    return ret;
+    if (ret != 0 && ret != 1)
+        return ret;
+    return any_rebuilt ? 0 : 1;
 }
 
 int main(int argc, char **argv)
