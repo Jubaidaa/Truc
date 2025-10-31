@@ -138,6 +138,7 @@ int parse_rule_file(const char *path, struct variable **vars,
     struct rule *rtail = NULL;
     struct rule *current = NULL;
     size_t cmd_count = 0;
+    int in_rule = 0;
     struct parse_var_ctx vctx = {f, vars, &vtail};
     struct parse_rule_ctx rctx = {f, rules, &rtail};
     char *line;
@@ -145,14 +146,19 @@ int parse_rule_file(const char *path, struct variable **vars,
     {
         if (line[0] == '\0')
         {
-            current = NULL;
-            cmd_count = 0;
+            if (!in_rule)
+            {
+                current = NULL;
+                cmd_count = 0;
+            }
             free(line);
             continue;
         }
         if (ends_with(line, '='))
         {
             parse_variable_line(line, &vctx);
+            current = NULL;
+            in_rule = 0;
             free(line);
             continue;
         }
@@ -160,6 +166,7 @@ int parse_rule_file(const char *path, struct variable **vars,
         {
             current = parse_rule_block(line, &rctx);
             cmd_count = 0;
+            in_rule = 1;
             free(line);
             continue;
         }

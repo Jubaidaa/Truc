@@ -1,17 +1,17 @@
 CC       = gcc
 CFLAGS   = -std=c99 -pedantic -Werror -Wall -Wextra -Wvla
-SRC      = src/main.c src/parser.c src/builder.c src/aux_builder.c src/micro_shell.c src/simple_ls.c
+SRCS     = src/main.c src/parser.c src/builder.c src/aux_builder.c src/micro_shell.c src/simple_ls.c
 BIN      = minimake
 
 .PHONY: all clean
 
 all: $(BIN)
 
-$(BIN): $(SRC)
-	$(CC) $(CFLAGS) $(SRC) -o $(BIN)
+$(BIN): $(SRCS)
+	$(CC) $(CFLAGS) $(SRCS) -o $(BIN)
 	@echo "Haru Urara da best horse"
 
 clean:
 	$(RM) $(BIN) rule.txt
 	@echo "You killed the child uma, u bad human!"
-	
+

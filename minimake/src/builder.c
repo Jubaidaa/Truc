@@ -177,19 +177,89 @@ static int exec_cmd(const char *cmd)
     return micro_shell(act);
 }
 
-static int needs_rebuild(struct rule *r)
+static char **split_deps(const char *str)
+{
+    if (!str || !str[0])
+        return NULL;
+    size_t count = 1;
+    for (size_t i = 0; str[i]; i++)
+        if (str[i] == ' ' && str[i + 1] && str[i + 1] != ' ')
+            count++;
+    char **result = malloc((count + 1) * sizeof(char *));
+    if (!result)
+    {
+        fprintf(stderr, "malloc failed\n");
+        exit(1);
+    }
+    size_t idx = 0, start = 0;
+    for (size_t i = 0; str[i]; i++)
+    {
+        if (str[i] == ' ' || str[i + 1] == '\0')
+        {
+            size_t end = (str[i] == ' ') ? i : i + 1;
+            if (end > start)
+            {
+                size_t len = end - start;
+                result[idx] = malloc(len + 1);
+                if (!result[idx])
+                {
+                    fprintf(stderr, "malloc failed\n");
+                    exit(1);
+                }
+                memcpy(result[idx], str + start, len);
+                result[idx][len] = '\0';
+                idx++;
+            }
+            start = i + 1;
+        }
+    }
+    result[idx] = NULL;
+    return result;
+}
+
+static int check_dep_time(const char *dep, time_t t, const struct variable *v)
+{
+    char *expanded = expand_variables(dep, v, NULL);
+    char **files = split_deps(expanded);
+    int needs = 0;
+    if (files)
+    {
+        for (size_t i = 0; files[i]; i++)
+        {
+            time_t d;
+            if (file_mtime(files[i], &d) || d > t)
+            {
+                needs = 1;
+            }
+            free(files[i]);
+        }
+        free(files);
+    }
+    free(expanded);
+    return needs;
+}
+
+static int needs_rebuild_check(struct rule *r, const struct variable *v)
 {
     if (!r->target || r->phony)
         return 1;
+    char *target_exp = expand_variables(r->target, v, NULL);
     time_t t;
-    if (file_mtime(r->target, &t))
+    int stat_ret = file_mtime(target_exp, &t);
+    if (stat_ret)
+    {
+        free(target_exp);
         return 1;
+    }
     for (size_t i = 0; r->deps && r->deps[i]; i++)
     {
-        time_t d;
-        if (file_mtime(r->deps[i], &d) || d > t)
+        if (check_dep_time(r->deps[i], t, v))
+        {
+            free(target_exp);
             return 1;
+        }
     }
+    free(target_exp);
     return 0;
 }
 
@@ -211,7 +281,7 @@ int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
             return 1;
         }
     }
-    if (!needs_rebuild(r))
+    if (!needs_rebuild_check(r, vars))
     {
         if (!r->cmds || !r->cmds[0])
             printf("minimake: Nothing to be done for '%s'.\n", r->target);
