@@ -206,7 +206,9 @@ struct rule *find_rule(struct rule *rules, const char *target)
     for (struct rule *r = rules; r; r = r->next)
     {
         if (strcmp(r->target, target) == 0)
+        {
             return r;
+        }
     }
     return NULL;
 }
@@ -216,18 +218,23 @@ static int execute_command(const char *cmd)
     int silent = (cmd[0] == '@');
     const char *actual = silent ? cmd + 1 : cmd;
     if (!silent)
+    {
         printf("%s\n", actual);
+    }
     return micro_shell(actual);
 }
 
 static int needs_rebuild(struct rule *r)
 {
     if (!r->target || r->phony)
+    {
         return 1;
-
+    }
     time_t tgt_time;
     if (file_mtime(r->target, &tgt_time) != 0)
+    {
         return 1;
+    }
 
     if (r->deps)
     {
@@ -237,11 +244,12 @@ static int needs_rebuild(struct rule *r)
             if (file_mtime(r->deps[i], &dep_time) == 0)
             {
                 if (dep_time > tgt_time)
+                {
                     return 1;
+                }
             }
             else
             {
-                /* Dependency missing */
                 return 1;
             }
         }
@@ -252,16 +260,17 @@ static int needs_rebuild(struct rule *r)
 int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
 {
     if (!r)
+    {
         return 1;
-
+    }
     if (r->visiting)
     {
-        fprintf(stderr, "cycle detected at target '%s'\n", r->target);
         return 1;
     }
     if (r->built)
+    {
         return 0;
-
+    }
     r->visiting = 1;
 
     if (r->deps)
@@ -284,9 +293,13 @@ int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
     if (!need)
     {
         if (!r->cmds || !r->cmds[0])
+        {
             printf("minimake: Nothing to be done for '%s'.\n", r->target);
+        }
         else
+        {
             printf("minimake: '%s' is up to date.\n", r->target);
+        }
         r->visiting = 0;
         r->built = 1;
         return 0;
@@ -347,13 +360,17 @@ void free_rules(struct rule *rules)
         if (rules->deps)
         {
             for (size_t i = 0; rules->deps[i]; i++)
+            {
                 free(rules->deps[i]);
+            }
             free(rules->deps);
         }
         if (rules->cmds)
         {
             for (size_t j = 0; rules->cmds[j]; j++)
+            {
                 free(rules->cmds[j]);
+            }
             free(rules->cmds);
         }
         free(rules->target);

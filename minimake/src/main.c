@@ -13,7 +13,7 @@ static void print_help(void)
     printf("Usage: minimake [TARGETS...] [-f FILE] [-p] [-h]\n");
     printf("Options:\n");
     printf("  -f FILE   Use FILE as makefile (default: Makefile or makefile)\n");
-    printf("  -p        Parse only and print normalized output\n");
+    printf("  -p        Print the file\n");
     printf("  -h        Display this help message\n");
 }
 
@@ -106,7 +106,6 @@ int main(int argc, char **argv)
 
     if (parse_file(makefile))
     {
-        /* Do NOT print "parser failed" if file doesn't exist */
         if (access(makefile, F_OK) != 0)
             return 2;
         return 1;
