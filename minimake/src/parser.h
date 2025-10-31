@@ -1,6 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-int parse_file(const char *filename);
+#include "builder.h"
+
+int parse_file(const char *filename, struct variable **vars, struct rule **rules);
 
 #endif /* ! PARSER_H */

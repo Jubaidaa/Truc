@@ -21,15 +21,12 @@ struct rule
     struct rule *next;
 };
 
-int parse_rule_file(const char *path, struct variable **vars,
-                    struct rule **rules);
 const char *get_variable(const struct variable *vars, const char *name);
 struct rule *find_rule(struct rule *rules, const char *target);
 char *expand_variables(const char *line, const struct variable *vars,
                        const struct rule *ctx);
 int build_rule(struct rule *rules, struct variable *vars, const char *target);
-int build_rule_inner(struct rule *rules, struct variable *vars,
-                     struct rule *r);
+int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r);
 void free_variables(struct variable *vars);
 void free_rules(struct rule *rules);
 

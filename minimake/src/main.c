@@ -3,17 +3,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "builder.h"
 
-int parse_file(const char *filename);
+#include "builder.h"
+#include "parser.h"
 
 static void print_help(void)
 {
     printf("Usage: minimake [TARGETS...] [-f FILE] [-p] [-h]\n");
     printf("Options:\n");
-    printf("  -f FILE   Use FILE as makefile (default: Makefile or makefile)\n");
+    printf("  -f FILE   (default: Makefile or makefile)\n");
     printf("  -p        Print the file\n");
-    printf("  -h        Display this help message\n");
+    printf("  -h        Display help message\n");
 }
 
 static const char *detect_makefile(void)
@@ -26,18 +26,40 @@ static const char *detect_makefile(void)
     exit(2);
 }
 
-static void pretty_print(void)
+static void print_variable(struct variable *v)
 {
-    FILE *f = fopen("rule.txt", "r");
-    if (!f)
+    printf("%s=\n%s\n", v->name, v->value);
+}
+
+static void print_rule(struct rule *r)
+{
+    printf("%s:\n", r->target);
+    for (size_t i = 0; r->deps && r->deps[i]; i++)
+        printf("%s\n", r->deps[i]);
+    if (r->deps || r->cmds)
+        printf("\n");
+    for (size_t i = 0; r->cmds && r->cmds[i]; i++)
+        printf("\t%s\n", r->cmds[i]);
+}
+
+static void pretty_print(struct variable *vars, struct rule *rules)
+{
+    // Print variables first
+    for (struct variable *v = vars; v; v = v->next)
     {
-        fprintf(stderr, "cannot open rule.txt\n");
-        exit(1);
+        print_variable(v);
+        if (v->next || rules)
+            printf("\n");
     }
-    char buf[4096];
-    while (fgets(buf, sizeof(buf), f))
-        fputs(buf, stdout);
-    fclose(f);
+    
+    // Print rules
+    for (struct rule *r = rules; r; r = r->next)
+    {
+        print_rule(r);
+        if (r->next)
+            printf("\n");
+    }
+    printf("\n");
 }
 
 struct build_ctx
@@ -75,6 +97,12 @@ static int build_targets(struct build_ctx *ctx)
     return any_rebuilt ? 0 : 1;
 }
 
+int help_print(int n, const char *makefile)
+{
+    fprintf(stderr, "Cannot open %s: %s\n", makefile, strerror(errno));
+    return n;
+}
+
 int main(int argc, char **argv)
 {
     const char *makefile = NULL;
@@ -97,7 +125,6 @@ int main(int argc, char **argv)
         {
             if (i + 1 >= argc)
             {
-                fprintf(stderr, "-f requires a file\n");
                 return 1;
             }
             makefile = argv[++i];
@@ -112,12 +139,16 @@ int main(int argc, char **argv)
 
     if (access(makefile, F_OK) != 0)
     {
-        fprintf(stderr, "Cannot open %s: %s\n", makefile, strerror(errno));
-        return 2;
+        return help_print(2, makefile);
     }
 
-    if (parse_file(makefile))
+    struct variable *vars = NULL;
+    struct rule *rules = NULL;
+
+    if (parse_file(makefile, &vars, &rules))
     {
+        free_variables(vars);
+        free_rules(rules);
         if (access(makefile, F_OK) != 0)
             return 2;
         return 1;
@@ -125,22 +156,13 @@ int main(int argc, char **argv)
 
     if (parse_only)
     {
-        pretty_print();
+        pretty_print(vars, rules);
+        free_variables(vars);
+        free_rules(rules);
         return 0;
     }
 
-    struct variable *vars = NULL;
-    struct rule *rules = NULL;
-
-    if (parse_rule_file("rule.txt", &vars, &rules))
-    {
-        fprintf(stderr, "cannot parse rule.txt\n");
-        free_variables(vars);
-        free_rules(rules);
-        return 1;
-    }
-
-    struct build_ctx ctx = {rules, vars, argv, first_target, argc};
+    struct build_ctx ctx = { rules, vars, argv, first_target, argc };
     int ret = build_targets(&ctx);
 
     if (rules && !rules->visiting)

@@ -1,4 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
+
+#include "builder.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,9 +9,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "builder.h"
+
 #include "micro_shell.h"
-#include "aux_builder.h"
 
 struct append_ctx
 {
@@ -106,7 +108,7 @@ static size_t handle_auto(struct append_ctx *a, struct expand_ctx *e, size_t i)
     char c = e->line[i + 1];
     if (c != '@' && c != '<' && c != '^')
         return i;
-    char name[2] = {c, '\0'};
+    char name[2] = { c, '\0' };
     char *val = expand_auto(name, e->ctx);
     append_str(a, val);
     free(val);
@@ -116,8 +118,9 @@ static size_t handle_auto(struct append_ctx *a, struct expand_ctx *e, size_t i)
 char *expand_variables(const char *line, const struct variable *vars,
                        const struct rule *ctx)
 {
-    struct expand_ctx e = {line, vars, ctx};
-    size_t cap = 256, len = 0;
+    struct expand_ctx e = { line, vars, ctx };
+    size_t cap = 256;
+    size_t len = 0;
     char *res = malloc(cap);
     if (!res)
     {
@@ -125,7 +128,7 @@ char *expand_variables(const char *line, const struct variable *vars,
         exit(1);
     }
     res[0] = '\0';
-    struct append_ctx a = {&res, &len, &cap};
+    struct append_ctx a = { &res, &len, &cap };
 
     for (size_t i = 0; line && line[i];)
     {
@@ -143,7 +146,7 @@ char *expand_variables(const char *line, const struct variable *vars,
                 continue;
             }
         }
-        append_str(&a, (char[]){line[i], '\0'});
+        append_str(&a, (char[]){ line[i], '\0' });
         i++;
     }
     return res;
@@ -191,7 +194,8 @@ static char **split_deps(const char *str)
         fprintf(stderr, "malloc failed\n");
         exit(1);
     }
-    size_t idx = 0, start = 0;
+    size_t idx = 0;
+    size_t start = 0;
     for (size_t i = 0; str[i]; i++)
     {
         if (str[i] == ' ' || str[i + 1] == '\0')
