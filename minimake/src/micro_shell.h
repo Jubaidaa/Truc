@@ -4,4 +4,3 @@
 int micro_shell(const char *cmd);
 
 #endif /* ! MICRO_SHELL_H */
-

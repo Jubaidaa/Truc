@@ -14,7 +14,7 @@ int micro_shell(const char *cmd)
     pid_t pid = fork();
     if (pid == 0)
     {
-        execl("/bin/sh", "supershell", "-c", cmd, NULL);
+        execl("/bin/sh", "micro_shell", "-c", cmd, NULL);
         fprintf(stderr, "exec failed: %s\n", strerror(errno));
         _exit(1);
     }

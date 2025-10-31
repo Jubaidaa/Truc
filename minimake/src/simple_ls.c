@@ -26,7 +26,7 @@ int list_dir(const char *dirname)
 
     if (!dir)
     {
-        fprintf(stderr, "simple_ls: cannot open directory '%s': %s\n", dirname,
+        fprintf(stderr, "simple_ls: cannot open dir '%s': %s\n", dirname,
                 strerror(errno));
         return 2;
     }
@@ -39,8 +39,8 @@ int list_dir(const char *dirname)
 
     if (closedir(dir) != 0)
     {
-        fprintf(stderr, "simple_ls: failed to close directory '%s': %s\n",
-                dirname, strerror(errno));
+        fprintf(stderr, "simple_ls: failed to close dir '%s': %s\n", dirname,
+                strerror(errno));
         return 2;
     }
     return 0;
