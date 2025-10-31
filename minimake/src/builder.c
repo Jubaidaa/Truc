@@ -275,10 +275,14 @@ int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
     for (size_t i = 0; r->deps && r->deps[i]; i++)
     {
         struct rule *d = find_rule(rules, r->deps[i]);
-        if (d && build_rule_inner(rules, vars, d))
+        if (d)
         {
-            r->visiting = 0;
-            return 1;
+            int ret = build_rule_inner(rules, vars, d);
+            if (ret != 0 && ret != 1)
+            {
+                r->visiting = 0;
+                return ret;
+            }
         }
     }
     if (!needs_rebuild_check(r, vars))
@@ -291,7 +295,7 @@ int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
         free(target_exp);
         r->visiting = 0;
         r->built = 1;
-        return 0;
+        return 1;
     }
     for (size_t j = 0; r->cmds && r->cmds[j]; j++)
     {
