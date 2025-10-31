@@ -1,157 +1,144 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 #include "builder.h"
-#include "aux_builder.h"
-#include "parser.h"
+
+int parse_file(const char *filename);
+
+static void print_help(void)
+{
+    printf("Usage: minimake [TARGETS...] [-f FILE] [-p] [-h]\n");
+    printf("Options:\n");
+    printf("  -f FILE   Use FILE as makefile (default: Makefile or makefile)\n");
+    printf("  -p        Parse only and print normalized output\n");
+    printf("  -h        Display this help message\n");
+}
+
+static const char *detect_makefile(void)
+{
+    if (access("Makefile", F_OK) == 0)
+    {
+        return "Makefile";
+    }
+    if (access("makefile", F_OK) == 0)
+    {
+        return "makefile";
+    }
+    fprintf(stderr, "No Makefile found\n");
+    exit(1);
+}
+
+static void pretty_print(void)
+{
+    FILE *f = fopen("rule.txt", "r");
+    if (!f)
+    {
+        fprintf(stderr, "cannot open rule.txt\n");
+        exit(1);
+    }
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), f))
+    {
+        fputs(buf, stdout);
+    }
+    fclose(f);
+}
+
+static int build_targets(struct rule *rules, struct variable *vars,
+                         char **argv, int start, int argc)
+{
+    int ret = 0;
+    if (start == -1)
+    {
+        if (rules)
+        {
+            return build_rule(rules, vars, rules->target);
+        }
+        fprintf(stderr, "No default target found.\n");
+        return 1;
+    }
+    for (int i = start; i < argc; i++)
+    {
+        if (argv[i][0] == '-')
+        {
+            continue;
+        }
+        ret = build_rule(rules, vars, argv[i]);
+        if (ret)
+        {
+            break;
+        }
+    }
+    return ret;
+}
 
 int main(int argc, char **argv)
 {
     const char *makefile = NULL;
-    const char *target = NULL;
-    int print_only = 0;
-    int help = 0;
-
-    if (argc < 2)
-    {
-        fprintf(stderr, "Usage: %s [-f file] [-p] [-h] [target]\n", argv[0]);
-        return 1;
-    }
-
+    int parse_only = 0;
+    int first_target = -1;
+    
     for (int i = 1; i < argc; i++)
     {
-        if (argv[i][0] == '\0')
+        if (!strcmp(argv[i], "-h"))
         {
-            fprintf(stderr, "minimake: *** empty string invalid as argument.  Stop.\n");
-            return 2;
+            print_help();
+            return 0;
         }
-    }
-
-    for (int i = 1; i < argc; i++)
-    {
+        if (!strcmp(argv[i], "-p"))
+        {
+            parse_only = 1;
+            continue;
+        }
         if (!strcmp(argv[i], "-f"))
         {
-            if (i + 1 < argc)
+            if (i + 1 >= argc)
             {
-                makefile = argv[++i];
-            }
-            else
-            {
-                fprintf(stderr, "Usage: %s [-f file] [-p] [-h] [target]\n", argv[0]);
+                fprintf(stderr, "-f requires a file\n");
                 return 1;
             }
+            makefile = argv[++i];
+            continue;
         }
-        else if (!strcmp(argv[i], "-p"))
+        if (first_target == -1)
         {
-            print_only = 1;
-        }
-        else if (!strcmp(argv[i], "-h"))
-        {
-            help = 1;
-        }
-        else
-        {
-            target = argv[i];
+            first_target = i;
         }
     }
-
-    if (help)
-    {
-        printf("Usage: %s [-f file] [-p] [-h] [target]\n", argv[0]);
-        printf("  -f <file> : specify a Makefile (default: Makefile or makefile)\n");
-        printf("  -p        : print rules and variables after parsing\n");
-        printf("  -h        : show this help message\n");
-        return 0;
-    }
-
+    
     if (!makefile)
     {
-        if (access("Makefile", F_OK) == 0)
-        {
-            makefile = "Makefile";
-        }
-        else if (access("makefile", F_OK) == 0)
-        {
-            makefile = "makefile";
-        }
-        else
-        {
-            fprintf(stderr, "Cannot open Makefile: No such file or directory\n");
-            return 2;
-        }
+        makefile = detect_makefile();
     }
-
-    struct variable *vars = NULL;
-    struct rule *rules = NULL;
-
+    
     if (parse_file(makefile))
     {
-        if (access(makefile, F_OK) != 0)
-        {
-            return 2;
-        }
         fprintf(stderr, "Parser failed on %s\n", makefile);
         return 1;
     }
-
-    if (parse_rule_file("rule.txt", &vars, &rules))
+    
+    if (parse_only)
     {
-        fprintf(stderr, "Failed to read rule.txt\n");
-        free_variables(vars);
-        free_rules(rules);
-        return 1;
-    }
-
-    if (print_only)
-    {
-        struct variable *v = vars;
-        struct rule *r = rules;
-        printf("Variables:\n");
-        while (v)
-        {
-            printf("  %s = %s\n", v->name, v->value);
-            v = v->next;
-        }
-        printf("\nRules:\n");
-        while (r)
-        {
-            printf("  %s:\n", r->target);
-            if (r->deps)
-            {
-                for (size_t i = 0; r->deps[i]; i++)
-                {
-                    printf("    dep: %s\n", r->deps[i]);
-                }
-            }
-            if (r->cmds)
-            {
-                for (size_t j = 0; r->cmds[j]; j++)
-                {
-                    printf("    cmd: %s\n", r->cmds[j]);
-                }
-            }
-            printf("\n");
-            r = r->next;
-        }
-        free_variables(vars);
-        free_rules(rules);
+        pretty_print();
         return 0;
     }
-
-    if (!target)
+    
+    struct variable *vars = NULL;
+    struct rule *rules = NULL;
+    
+    if (parse_rule_file("rule.txt", &vars, &rules))
     {
-        target = "all";
+        fprintf(stderr, "cannot parse rule.txt\n");
+        return 1;
     }
-
-    int ret = build_rule(rules, vars, target);
-
-    /* ✅ Only free once after all top-level targets are built */
-    if (rules && !rules->visiting)
-    {
-        free_variables(vars);
-        free_rules(rules);
-    }
-
+    
+    int ret = build_targets(rules, vars, argv, first_target, argc);
+    
+    free_variables(vars);
+    free_rules(rules);
+    
     return ret;
 }

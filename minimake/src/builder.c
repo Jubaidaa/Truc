@@ -306,10 +306,12 @@ static int check_dependencies(struct rule *rules, struct variable *vars,
     for (size_t i = 0; r->deps[i]; i++)
     {
         char *expanded = expand_variables(r->deps[i], vars, r);
+        int need_free = 1;
         
         if (is_variable_reference(r->deps[i]))
         {
-            char *token = strtok(expanded, " \t\n");
+            char *expanded_copy = xstrdup(expanded);
+            char *token = strtok(expanded_copy, " \t\n");
             while (token)
             {
                 struct rule *dr = find_rule(rules, token);
@@ -319,6 +321,7 @@ static int check_dependencies(struct rule *rules, struct variable *vars,
                     if (ret)
                     {
                         free(expanded);
+                        free(expanded_copy);
                         return ret;
                     }
                 }
@@ -328,10 +331,12 @@ static int check_dependencies(struct rule *rules, struct variable *vars,
                             "minimake: *** No rule to make target '%s'. Stop.\n",
                             token);
                     free(expanded);
+                    free(expanded_copy);
                     return 2;
                 }
                 token = strtok(NULL, " \t\n");
             }
+            free(expanded_copy);
         }
         else
         {
@@ -339,31 +344,23 @@ static int check_dependencies(struct rule *rules, struct variable *vars,
             if (dr)
             {
                 int ret = build_rule_inner(rules, vars, dr);
-                free(expanded);
                 if (ret)
                 {
+                    free(expanded);
                     return ret;
                 }
             }
-            else
+            else if (!file_exists(expanded))
             {
-                if (!file_exists(expanded))
-                {
-                    fprintf(stderr,
-                            "minimake: *** No rule to make target '%s'. Stop.\n",
-                            expanded);
-                    free(expanded);
-                    return 2;
-                }
+                fprintf(stderr,
+                        "minimake: *** No rule to make target '%s'. Stop.\n",
+                        expanded);
                 free(expanded);
+                return 2;
             }
         }
         
-        if (is_variable_reference(r->deps[i]))
-        {
-            free(expanded);
-        }
-        else
+        if (need_free)
         {
             free(expanded);
         }
@@ -419,7 +416,6 @@ int build_rule_inner(struct rule *rules, struct variable *vars,
 
     if (!r->phony && !newer_than(r->target, r->deps))
     {
-        printf("Nothing to be done for '%s'\n", r->target);
         r->visiting = 0;
         r->built = 1;
         return 0;
