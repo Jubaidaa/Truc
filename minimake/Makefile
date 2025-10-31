@@ -14,7 +14,7 @@ check:
 	$(CC) $(CFLAGS) tests/test_micro_shell.c src/micro_shell.c -lcriterion -o tests/test_micro_shell
 	$(CC) $(CFLAGS) tests/test_parser.c src/parser.c -lcriterion -o tests/test_parser
 	$(CC) $(CFLAGS) tests/test_builder.c src/builder.c src/micro_shell.c src/simple_ls.c -lcriterion -o tests/test_builder
-	$(CC) $(CFLAGS) tests/test_aux_builder.c src/aux_builder.c -lcriterion -o tests/test_aux_builder
+	$(CC) $(CFLAGS) tests/test_aux_builder.c src/aux_builder.c src/builder.c -lcriterion -o tests/test_aux_builder
 	./tests/test_micro_shell
 	./tests/test_parser
 	./tests/test_builder
