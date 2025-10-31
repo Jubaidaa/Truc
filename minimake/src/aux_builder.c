@@ -1,15 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "builder.h"
 
 static char *xstrdup(const char *s)
 {
     if (!s)
-    {
         return NULL;
-    }
     size_t n = strlen(s) + 1;
     char *p = malloc(n);
     if (!p)
@@ -25,44 +22,27 @@ static char *read_line(FILE *f)
 {
     char buf[4096];
     if (!fgets(buf, sizeof(buf), f))
-    {
         return NULL;
-    }
     size_t len = strlen(buf);
     if (len > 0 && buf[len - 1] == '\n')
-    {
         buf[len - 1] = '\0';
-    }
     return xstrdup(buf);
 }
 
-static void add_dep(char ***deps, size_t *count, const char *dep)
+static void add_str(char ***arr, size_t *count, const char *val)
 {
-    *deps = realloc(*deps, (*count + 2) * sizeof(char *));
-    if (!*deps)
+    *arr = realloc(*arr, (*count + 2) * sizeof(char *));
+    if (!*arr)
     {
         fprintf(stderr, "malloc failed\n");
         exit(1);
     }
-    (*deps)[*count] = xstrdup(dep);
-    (*deps)[*count + 1] = NULL;
+    (*arr)[*count] = xstrdup(val);
+    (*arr)[*count + 1] = NULL;
     (*count)++;
 }
 
-static void add_cmd(char ***cmds, size_t *count, const char *cmd)
-{
-    *cmds = realloc(*cmds, (*count + 2) * sizeof(char *));
-    if (!*cmds)
-    {
-        fprintf(stderr, "malloc failed\n");
-        exit(1);
-    }
-    (*cmds)[*count] = xstrdup(cmd);
-    (*cmds)[*count + 1] = NULL;
-    (*count)++;
-}
-
-static struct rule *create_rule(char *target_name)
+static struct rule *create_rule(const char *target)
 {
     struct rule *r = malloc(sizeof(*r));
     if (!r)
@@ -70,10 +50,10 @@ static struct rule *create_rule(char *target_name)
         fprintf(stderr, "malloc failed\n");
         exit(1);
     }
-    r->target = target_name;
+    r->target = xstrdup(target);
     r->deps = NULL;
     r->cmds = NULL;
-    r->phony = !strcmp(target_name, ".PHONY");
+    r->phony = !strcmp(target, ".PHONY");
     r->visiting = 0;
     r->built = 0;
     r->next = NULL;
@@ -81,27 +61,69 @@ static struct rule *create_rule(char *target_name)
 }
 
 static void add_rule_to_list(struct rule *r, struct rule **rules,
-                             struct rule **rtail)
+                             struct rule **tail)
 {
     if (!*rules)
-    {
         *rules = r;
-    }
     else
-    {
-        (*rtail)->next = r;
-    }
-    *rtail = r;
+        (*tail)->next = r;
+    *tail = r;
 }
 
 static int ends_with(const char *str, char c)
 {
-    if (!str || !str[0])
-    {
-        return 0;
-    }
     size_t len = strlen(str);
-    return str[len - 1] == c;
+    return len && str[len - 1] == c;
+}
+
+struct parse_var_ctx
+{
+    FILE *f;
+    struct variable **vars;
+    struct variable **vtail;
+};
+
+struct parse_rule_ctx
+{
+    FILE *f;
+    struct rule **rules;
+    struct rule **rtail;
+};
+
+static void parse_variable_line(char *line, struct parse_var_ctx *ctx)
+{
+    line[strlen(line) - 1] = '\0';
+    char *value = read_line(ctx->f);
+    struct variable *v = malloc(sizeof(*v));
+    if (!v)
+    {
+        fprintf(stderr, "malloc failed\n");
+        exit(1);
+    }
+    v->name = xstrdup(line);
+    v->value = value ? value : xstrdup("");
+    v->next = NULL;
+    if (!*ctx->vars)
+        *ctx->vars = v;
+    else
+        (*ctx->vtail)->next = v;
+    *ctx->vtail = v;
+}
+
+static struct rule *parse_rule_block(char *line, struct parse_rule_ctx *ctx)
+{
+    line[strlen(line) - 1] = '\0';
+    struct rule *r = create_rule(line);
+    add_rule_to_list(r, ctx->rules, ctx->rtail);
+    size_t dep_count = 0;
+    char *dep;
+    while ((dep = read_line(ctx->f)) && dep[0] != '\0')
+    {
+        add_str(&r->deps, &dep_count, dep);
+        free(dep);
+    }
+    free(dep);
+    return r;
 }
 
 int parse_rule_file(const char *path, struct variable **vars,
@@ -109,87 +131,42 @@ int parse_rule_file(const char *path, struct variable **vars,
 {
     FILE *f = fopen(path, "r");
     if (!f)
-    {
         return 1;
-    }
-
     *vars = NULL;
     *rules = NULL;
     struct variable *vtail = NULL;
     struct rule *rtail = NULL;
-    struct rule *current_rule = NULL;
+    struct rule *current = NULL;
     size_t cmd_count = 0;
-
+    struct parse_var_ctx vctx = {f, vars, &vtail};
+    struct parse_rule_ctx rctx = {f, rules, &rtail};
     char *line;
     while ((line = read_line(f)))
     {
         if (line[0] == '\0')
         {
-            current_rule = NULL;
+            current = NULL;
             cmd_count = 0;
             free(line);
             continue;
         }
-
         if (ends_with(line, '='))
         {
-            line[strlen(line) - 1] = '\0';
-            char *value = read_line(f);
-            
-            struct variable *v = malloc(sizeof(*v));
-            if (!v)
-            {
-                fprintf(stderr, "malloc failed\n");
-                exit(1);
-            }
-            v->name = xstrdup(line);
-            v->value = value ? value : xstrdup("");
-            v->next = NULL;
-
-            if (!*vars)
-            {
-                *vars = v;
-            }
-            else
-            {
-                vtail->next = v;
-            }
-            vtail = v;
+            parse_variable_line(line, &vctx);
             free(line);
             continue;
         }
-
         if (ends_with(line, ':'))
         {
-            line[strlen(line) - 1] = '\0';
-            
-            struct rule *r = create_rule(xstrdup(line));
-            add_rule_to_list(r, rules, &rtail);
-            current_rule = r;
+            current = parse_rule_block(line, &rctx);
             cmd_count = 0;
             free(line);
-            
-            size_t dep_count = 0;
-            char *dep;
-            while ((dep = read_line(f)) && dep[0] != '\0')
-            {
-                add_dep(&current_rule->deps, &dep_count, dep);
-                free(dep);
-            }
-            free(dep);
             continue;
         }
-
-        if (current_rule && line[0] != '\0')
-        {
-            add_cmd(&current_rule->cmds, &cmd_count, line);
-            free(line);
-            continue;
-        }
-
+        if (current && line[0] != '\0')
+            add_str(&current->cmds, &cmd_count, line);
         free(line);
     }
-
     fclose(f);
     return 0;
 }
