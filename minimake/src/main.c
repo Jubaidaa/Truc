@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
 #include "builder.h"
 
 int parse_file(const char *filename);
@@ -41,22 +40,30 @@ static void pretty_print(void)
     fclose(f);
 }
 
-static int build_targets(struct rule *rules, struct variable *vars,
-                         char **argv, int start, int argc)
+struct build_ctx
+{
+    struct rule *rules;
+    struct variable *vars;
+    char **argv;
+    int start;
+    int argc;
+};
+
+static int build_targets(struct build_ctx *ctx)
 {
     int ret = 0;
-    if (start == -1)
+    if (ctx->start == -1)
     {
-        if (rules)
-            return build_rule(rules, vars, rules->target);
+        if (ctx->rules)
+            return build_rule(ctx->rules, ctx->vars, ctx->rules->target);
         fprintf(stderr, "No default target found.\n");
         return 1;
     }
-    for (int i = start; i < argc; i++)
+    for (int i = ctx->start; i < ctx->argc; i++)
     {
-        if (argv[i][0] == '-')
+        if (ctx->argv[i][0] == '-')
             continue;
-        ret = build_rule(rules, vars, argv[i]);
+        ret = build_rule(ctx->rules, ctx->vars, ctx->argv[i]);
         if (ret)
             break;
     }
@@ -128,7 +135,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int ret = build_targets(rules, vars, argv, first_target, argc);
+    struct build_ctx ctx = {rules, vars, argv, first_target, argc};
+    int ret = build_targets(&ctx);
 
     if (rules && !rules->visiting)
     {

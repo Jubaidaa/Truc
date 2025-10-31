@@ -10,184 +10,143 @@
 #include "micro_shell.h"
 #include "aux_builder.h"
 
+struct append_ctx
+{
+    char **res;
+    size_t *len;
+    size_t *cap;
+};
+
+struct expand_ctx
+{
+    const char *line;
+    const struct variable *vars;
+    const struct rule *ctx;
+};
+
 const char *get_variable(const struct variable *vars, const char *name)
 {
-    if (!name)
-    {
-        return NULL;
-    }
     for (const struct variable *v = vars; v; v = v->next)
-    {
         if (strcmp(v->name, name) == 0)
-        {
             return v->value;
+    return NULL;
+}
+
+static void append_str(struct append_ctx *a, const char *s)
+{
+    size_t slen = strlen(s);
+    while (*a->len + slen + 1 > *a->cap)
+    {
+        *a->cap *= 2;
+        *a->res = realloc(*a->res, *a->cap);
+        if (!*a->res)
+        {
+            fprintf(stderr, "malloc failed\n");
+            exit(1);
         }
     }
-    return NULL;
+    strcpy(*a->res + *a->len, s);
+    *a->len += slen;
 }
 
 static char *build_deps_string(char **deps)
 {
     size_t total = 0;
-    for (size_t i = 0; deps[i]; i++)
-    {
+    for (size_t i = 0; deps && deps[i]; i++)
         total += strlen(deps[i]) + 1;
-    }
-    char *result = malloc(total + 1);
-    if (!result)
+    char *res = malloc(total + 1);
+    if (!res)
     {
         fprintf(stderr, "malloc failed\n");
         exit(1);
     }
-    result[0] = '\0';
-    for (size_t i = 0; deps[i]; i++)
+    res[0] = '\0';
+    for (size_t i = 0; deps && deps[i]; i++)
     {
-        if (i > 0)
-        {
-            strcat(result, " ");
-        }
-        strcat(result, deps[i]);
+        if (i)
+            strcat(res, " ");
+        strcat(res, deps[i]);
     }
-    return result;
+    return res;
 }
 
-static char *expand_automatic(const char *var, const struct rule *ctx)
+static char *expand_auto(const char *name, const struct rule *ctx)
 {
     if (!ctx)
-    {
         return strdup("");
-    }
-    if (strcmp(var, "@") == 0)
-    {
+    if (!strcmp(name, "@"))
         return strdup(ctx->target ? ctx->target : "");
-    }
-    if (strcmp(var, "<") == 0)
-    {
-        if (ctx->deps && ctx->deps[0])
-        {
-            return strdup(ctx->deps[0]);
-        }
-        return strdup("");
-    }
-    if (strcmp(var, "^") == 0 && ctx->deps)
-    {
+    if (!strcmp(name, "<"))
+        return ctx->deps && ctx->deps[0] ? strdup(ctx->deps[0]) : strdup("");
+    if (!strcmp(name, "^"))
         return build_deps_string(ctx->deps);
-    }
     return strdup("");
 }
 
-static void append_string(char **result, size_t *len, size_t *cap,
-                          const char *str)
+static size_t handle_paren(struct append_ctx *a, struct expand_ctx *e, size_t i)
 {
-    size_t slen = strlen(str);
-    while (*len + slen + 1 > *cap)
-    {
-        *cap *= 2;
-        *result = realloc(*result, *cap);
-        if (!*result)
-        {
-            fprintf(stderr, "malloc failed\n");
-            exit(1);
-        }
-    }
-    strcpy(*result + *len, str);
-    *len += slen;
-}
-
-static size_t handle_paren_var(const char *line, size_t i, char **result,
-                                size_t *len, size_t *cap,
-                                const struct variable *vars)
-{
+    const char *line = e->line;
     size_t j = i + 2;
     while (line[j] && line[j] != ')')
-    {
         j++;
-    }
-    if (line[j] == ')')
-    {
-        size_t name_len = j - i - 2;
-        char *name = malloc(name_len + 1);
-        if (!name)
-        {
-            fprintf(stderr, "malloc failed\n");
-            exit(1);
-        }
-        memcpy(name, line + i + 2, name_len);
-        name[name_len] = '\0';
-        const char *val = get_variable(vars, name);
-        append_string(result, len, cap, val ? val : "");
-        free(name);
-        return j + 1;
-    }
-    return i;
+    if (line[j] != ')')
+        return i;
+    size_t len = j - i - 2;
+    char *name = malloc(len + 1);
+    memcpy(name, line + i + 2, len);
+    name[len] = '\0';
+    const char *val = get_variable(e->vars, name);
+    append_str(a, val ? val : "");
+    free(name);
+    return j + 1;
 }
 
-static size_t handle_auto_var(const char *line, size_t i, char **result,
-                               size_t *len, size_t *cap,
-                               const struct rule *ctx)
+static size_t handle_auto(struct append_ctx *a, struct expand_ctx *e, size_t i)
 {
-    char c = line[i + 1];
-    if (c == '@' || c == '<' || c == '^')
-    {
-        char var_name[2];
-        var_name[0] = c;
-        var_name[1] = '\0';
-        char *val = expand_automatic(var_name, ctx);
-        append_string(result, len, cap, val);
-        free(val);
-        return i + 2;
-    }
-    return i;
+    char c = e->line[i + 1];
+    if (c != '@' && c != '<' && c != '^')
+        return i;
+    char name[2] = {c, '\0'};
+    char *val = expand_auto(name, e->ctx);
+    append_str(a, val);
+    free(val);
+    return i + 2;
 }
 
 char *expand_variables(const char *line, const struct variable *vars,
                        const struct rule *ctx)
 {
-    if (!line)
-    {
-        return NULL;
-    }
-    size_t cap = 256;
-    char *result = malloc(cap);
-    if (!result)
+    struct expand_ctx e = {line, vars, ctx};
+    size_t cap = 256, len = 0;
+    char *res = malloc(cap);
+    if (!res)
     {
         fprintf(stderr, "malloc failed\n");
         exit(1);
     }
-    size_t len = 0;
-    result[0] = '\0';
+    res[0] = '\0';
+    struct append_ctx a = {&res, &len, &cap};
 
-    for (size_t i = 0; line[i];)
+    for (size_t i = 0; line && line[i];)
     {
         if (line[i] == '$' && line[i + 1] == '(')
         {
-            i = handle_paren_var(line, i, &result, &len, &cap, vars);
+            i = handle_paren(&a, &e, i);
             continue;
         }
-        if (line[i] == '$' && line[i + 1])
+        if (line[i] == '$')
         {
-            size_t new_i = handle_auto_var(line, i, &result, &len,
-                                           &cap, ctx);
+            size_t new_i = handle_auto(&a, &e, i);
             if (new_i != i)
             {
                 i = new_i;
                 continue;
             }
         }
-        while (len + 2 > cap)
-        {
-            cap *= 2;
-            result = realloc(result, cap);
-            if (!result)
-            {
-                fprintf(stderr, "malloc failed\n");
-                exit(1);
-            }
-        }
-        result[len++] = line[i++];
-        result[len] = '\0';
+        append_str(&a, (char[]){line[i], '\0'});
+        i++;
     }
-    return result;
+    return res;
 }
 
 static int file_mtime(const char *path, time_t *t)
@@ -204,55 +163,32 @@ static int file_mtime(const char *path, time_t *t)
 struct rule *find_rule(struct rule *rules, const char *target)
 {
     for (struct rule *r = rules; r; r = r->next)
-    {
-        if (strcmp(r->target, target) == 0)
-        {
+        if (!strcmp(r->target, target))
             return r;
-        }
-    }
     return NULL;
 }
 
-static int execute_command(const char *cmd)
+static int exec_cmd(const char *cmd)
 {
     int silent = (cmd[0] == '@');
-    const char *actual = silent ? cmd + 1 : cmd;
+    const char *act = silent ? cmd + 1 : cmd;
     if (!silent)
-    {
-        printf("%s\n", actual);
-    }
-    return micro_shell(actual);
+        printf("%s\n", act);
+    return micro_shell(act);
 }
 
 static int needs_rebuild(struct rule *r)
 {
     if (!r->target || r->phony)
-    {
         return 1;
-    }
-    time_t tgt_time;
-    if (file_mtime(r->target, &tgt_time) != 0)
-    {
+    time_t t;
+    if (file_mtime(r->target, &t))
         return 1;
-    }
-
-    if (r->deps)
+    for (size_t i = 0; r->deps && r->deps[i]; i++)
     {
-        for (size_t i = 0; r->deps[i]; i++)
-        {
-            time_t dep_time;
-            if (file_mtime(r->deps[i], &dep_time) == 0)
-            {
-                if (dep_time > tgt_time)
-                {
-                    return 1;
-                }
-            }
-            else
-            {
-                return 1;
-            }
-        }
+        time_t d;
+        if (file_mtime(r->deps[i], &d) || d > t)
+            return 1;
     }
     return 0;
 }
@@ -260,70 +196,42 @@ static int needs_rebuild(struct rule *r)
 int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
 {
     if (!r)
-    {
         return 1;
-    }
     if (r->visiting)
-    {
         return 1;
-    }
     if (r->built)
-    {
         return 0;
-    }
     r->visiting = 1;
-
-    if (r->deps)
+    for (size_t i = 0; r->deps && r->deps[i]; i++)
     {
-        for (size_t i = 0; r->deps[i]; i++)
+        struct rule *d = find_rule(rules, r->deps[i]);
+        if (d && build_rule_inner(rules, vars, d))
         {
-            struct rule *dep_rule = find_rule(rules, r->deps[i]);
-            if (dep_rule)
-            {
-                if (build_rule_inner(rules, vars, dep_rule))
-                {
-                    r->visiting = 0;
-                    return 1;
-                }
-            }
+            r->visiting = 0;
+            return 1;
         }
     }
-
-    int need = needs_rebuild(r);
-    if (!need)
+    if (!needs_rebuild(r))
     {
         if (!r->cmds || !r->cmds[0])
-        {
             printf("minimake: Nothing to be done for '%s'.\n", r->target);
-        }
         else
-        {
             printf("minimake: '%s' is up to date.\n", r->target);
-        }
         r->visiting = 0;
         r->built = 1;
         return 0;
     }
-
-    if (r->cmds)
+    for (size_t j = 0; r->cmds && r->cmds[j]; j++)
     {
-        for (size_t j = 0; r->cmds[j]; j++)
+        char *exp = expand_variables(r->cmds[j], vars, r);
+        int ret = exec_cmd(exp);
+        free(exp);
+        if (ret)
         {
-            char *expanded = expand_variables(r->cmds[j], vars, r);
-            int ret = execute_command(expanded);
-            free(expanded);
-            if (ret)
-            {
-                r->visiting = 0;
-                return ret;
-            }
+            r->visiting = 0;
+            return ret;
         }
     }
-    else if (!r->phony)
-    {
-        printf("minimake: Nothing to be done for '%s'.\n", r->target);
-    }
-
     r->visiting = 0;
     r->built = 1;
     return 0;
@@ -357,22 +265,12 @@ void free_rules(struct rule *rules)
     while (rules)
     {
         struct rule *n = rules->next;
-        if (rules->deps)
-        {
-            for (size_t i = 0; rules->deps[i]; i++)
-            {
-                free(rules->deps[i]);
-            }
-            free(rules->deps);
-        }
-        if (rules->cmds)
-        {
-            for (size_t j = 0; rules->cmds[j]; j++)
-            {
-                free(rules->cmds[j]);
-            }
-            free(rules->cmds);
-        }
+        for (size_t i = 0; rules->deps && rules->deps[i]; i++)
+            free(rules->deps[i]);
+        free(rules->deps);
+        for (size_t j = 0; rules->cmds && rules->cmds[j]; j++)
+            free(rules->cmds[j]);
+        free(rules->cmds);
         free(rules->target);
         free(rules);
         rules = n;
