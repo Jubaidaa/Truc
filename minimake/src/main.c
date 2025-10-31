@@ -145,7 +145,13 @@ int main(int argc, char **argv)
     }
 
     int ret = build_rule(rules, vars, target);
-    free_variables(vars);
-    free_rules(rules);
+
+    /* ✅ Only free once after all top-level targets are built */
+    if (rules && !rules->visiting)
+    {
+        free_variables(vars);
+        free_rules(rules);
+    }
+
     return ret;
 }
