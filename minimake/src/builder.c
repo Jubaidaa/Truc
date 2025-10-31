@@ -14,7 +14,7 @@ const char *get_variable(const struct variable *vars, const char *name)
 {
     if (!name)
     {
-        return "";
+        return NULL;
     }
     for (const struct variable *v = vars; v; v = v->next)
     {
@@ -23,7 +23,7 @@ const char *get_variable(const struct variable *vars, const char *name)
             return v->value;
         }
     }
-    return "";
+    return NULL;
 }
 
 static char *build_deps_string(char **deps)
@@ -115,7 +115,7 @@ static size_t handle_paren_var(const char *line, size_t i, char **result,
         memcpy(name, line + i + 2, name_len);
         name[name_len] = '\0';
         const char *val = get_variable(vars, name);
-        append_string(result, len, cap, val);
+        append_string(result, len, cap, val ? val : "");
         free(name);
         return j + 1;
     }
@@ -308,7 +308,7 @@ int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
     }
     else if (!r->phony)
     {
-        /* No commands and must rebuild â†’ invalid */
+        /* No commands and must rebuild → invalid */
         printf("minimake: Nothing to be done for '%s'.\n", r->target);
     }
 
@@ -362,4 +362,3 @@ void free_rules(struct rule *rules)
         rules = n;
     }
 }
-
