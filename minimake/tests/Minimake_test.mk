@@ -7,7 +7,7 @@ BIN      = minimake
 MSG      = Build finished successfully!
 
 # === PHONY TARGETS ===
-.PHONY: all clean rebuild showvars test_auto test_vars test_at test_chain
+.PHONY: all clean rebuild showvars test_auto test_vars test_at test_chain check
 
 # === MAIN BUILD ===
 all: $(BIN)
@@ -33,7 +33,7 @@ showvars:
 	@echo "Sources: $(SRC)"
 	@echo "Binary: $(BIN)"
 
-# === TEST: AUTOMATIC VARIABLES ===
+# === TEST: AUTOMATIC VARIABLES ($@, $<, $^) ===
 test_auto: first second
 	@echo "All automatic vars test done!"
 
@@ -52,7 +52,7 @@ test_vars:
 	@echo "Using CC=$(CC) and CFLAGS=$(CFLAGS)"
 	@echo "Final binary will be $(BIN)"
 
-# === TEST: COMMAND SILENCING (@) ===
+# === TEST: COMMAND SUPPRESSION (@) ===
 test_at:
 	echo "This line will be printed (command + output)"
 	@echo "This line will only show output"
@@ -69,4 +69,11 @@ step2: step3
 
 step3:
 	@echo "step3 done"
+
+# === GLOBAL TEST SUITE ===
+check: test_at test_vars test_auto test_chain showvars
+	@echo ""
+	@echo "========================================"
+	@echo "✅  All Minimake feature tests completed!"
+	@echo "========================================"
 
