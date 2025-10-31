@@ -70,6 +70,18 @@ step2: step3
 step3:
 	@echo "step3 done"
 
+# === TEST: ERROR HANDLING ===
+.PHONY: test_errors
+
+test_errors:
+	@echo "→ Testing unknown target..."
+	-./minimake -f tests/Minimake_test.mk nonexistent || true
+	@echo "→ Testing failed command..."
+	-./minimake -f tests/Error_test.mk fail || true
+	@echo "→ Testing cycle detection..."
+	-./minimake -f tests/Cycle_test.mk A || true
+	@echo "✅ Error handling tests executed"
+
 # === GLOBAL TEST SUITE ===
 check: test_at test_vars test_auto test_chain showvars
 	@echo ""
