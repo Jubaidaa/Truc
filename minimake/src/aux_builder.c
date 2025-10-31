@@ -36,18 +36,6 @@ static char *read_line(FILE *f)
     return xstrdup(buf);
 }
 
-struct rule *find_rule(struct rule *rules, const char *target)
-{
-    for (struct rule *r = rules; r; r = r->next)
-    {
-        if (!strcmp(r->target, target))
-        {
-            return r;
-        }
-    }
-    return NULL;
-}
-
 static void add_dep(char ***deps, size_t *count, const char *dep)
 {
     *deps = realloc(*deps, (*count + 2) * sizeof(char *));
@@ -204,43 +192,4 @@ int parse_rule_file(const char *path, struct variable **vars,
 
     fclose(f);
     return 0;
-}
-
-void free_variables(struct variable *vars)
-{
-    while (vars)
-    {
-        struct variable *next = vars->next;
-        free(vars->name);
-        free(vars->value);
-        free(vars);
-        vars = next;
-    }
-}
-
-void free_rules(struct rule *rules)
-{
-    while (rules)
-    {
-        struct rule *next = rules->next;
-        free(rules->target);
-        if (rules->deps)
-        {
-            for (int i = 0; rules->deps[i]; i++)
-            {
-                free(rules->deps[i]);
-            }
-            free(rules->deps);
-        }
-        if (rules->cmds)
-        {
-            for (int i = 0; rules->cmds[i]; i++)
-            {
-                free(rules->cmds[i]);
-            }
-            free(rules->cmds);
-        }
-        free(rules);
-        rules = next;
-    }
 }

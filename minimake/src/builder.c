@@ -308,7 +308,7 @@ int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
     }
     else if (!r->phony)
     {
-        /* No commands and must rebuild → invalid */
+        /* No commands and must rebuild â†’ invalid */
         printf("minimake: Nothing to be done for '%s'.\n", r->target);
     }
 
