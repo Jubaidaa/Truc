@@ -14,7 +14,7 @@ const char *get_variable(const struct variable *vars, const char *name)
 {
     if (!name)
     {
-        return NULL;
+        return "";
     }
     for (const struct variable *v = vars; v; v = v->next)
     {
@@ -23,7 +23,7 @@ const char *get_variable(const struct variable *vars, const char *name)
             return v->value;
         }
     }
-    return NULL;
+    return "";
 }
 
 static char *build_deps_string(char **deps)
@@ -115,7 +115,7 @@ static size_t handle_paren_var(const char *line, size_t i, char **result,
         memcpy(name, line + i + 2, name_len);
         name[name_len] = '\0';
         const char *val = get_variable(vars, name);
-        append_string(result, len, cap, val ? val : "");
+        append_string(result, len, cap, val);
         free(name);
         return j + 1;
     }
@@ -362,3 +362,4 @@ void free_rules(struct rule *rules)
         rules = n;
     }
 }
+
