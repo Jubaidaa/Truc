@@ -283,10 +283,12 @@ int build_rule_inner(struct rule *rules, struct variable *vars, struct rule *r)
     }
     if (!needs_rebuild_check(r, vars))
     {
+        char *target_exp = expand_variables(r->target, vars, NULL);
         if (!r->cmds || !r->cmds[0])
-            printf("minimake: Nothing to be done for '%s'.\n", r->target);
+            printf("minimake: Nothing to be done for '%s'.\n", target_exp);
         else
-            printf("minimake: '%s' is up to date.\n", r->target);
+            printf("minimake: '%s' is up to date.\n", target_exp);
+        free(target_exp);
         r->visiting = 0;
         r->built = 1;
         return 0;
