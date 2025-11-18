@@ -3,7 +3,6 @@ tests/response_parser
 config_reader.sh
 littlegame.tar.gz
 httpd
-#.clang-format
 
 # dir
 test_game
