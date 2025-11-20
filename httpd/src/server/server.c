@@ -8,19 +8,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../config/config.h"
 #include "../http/http.h"
 #include "../logger/logger.h"
 #include "../utils/string/aux_string.h"
-#include "aux_socket.h"
-
-const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
-int inet_pton(int af, const char *src, void *dst);
-uint16_t htons(uint16_t hostshort);
+#include "aux_network.h"
 
 static volatile sig_atomic_t g_server_running = 1;
 
@@ -74,10 +68,10 @@ static int server_create_socket(struct server *server,
     }
     
     memset(&server->address, 0, sizeof(server->address));
-    server->address.sin_family = AF_INET;
-    server->address.sin_port = htons(config->port);
+    server->address.sin.sin_family = AF_INET;
+    server->address.sin.sin_port = my_htons(config->port);
     
-    if (inet_pton(AF_INET, config->ip, &server->address.sin_addr) <= 0)
+    if (my_inet_pton_ipv4(config->ip, &server->address.sin.sin_addr) <= 0)
     {
         fprintf(stderr, "Invalid address: %s\n", config->ip);
         close(server->socket_fd);
@@ -128,11 +122,8 @@ int server_bind(struct server *server)
         return -1;
     }
     
-    union socket_addr_union addr_union;
-    addr_union.sin = server->address;
-    
-    if (bind(server->socket_fd, &addr_union.sa,
-             sizeof(server->address)) < 0)
+    if (bind(server->socket_fd, &server->address.sa,
+             sizeof(server->address.sin)) < 0)
     {
         perror("bind");
         return -1;
@@ -297,15 +288,13 @@ static struct http_response *create_file_response(const char *filepath,
 }
 
 static int validate_request(struct http_request *request, int client_fd,
-                            struct server *server, const char *client_ip)
+                            struct server *server, const char *client_ip,
+                            const struct log_request_info *info)
 {
-    const char *method = http_method_to_string(request->method);
-    const char *target = request->target->data;
-    
     if (strcmp(request->version->data, "HTTP/1.1") != 0)
     {
         send_error_response(client_fd, HTTP_STATUS_VERSION_NOT_SUPPORTED);
-        logger_log_response(server->logger, 505, client_ip, method, target);
+        logger_log_response(server->logger, 505, info);
         return -1;
     }
     
@@ -313,7 +302,7 @@ static int validate_request(struct http_request *request, int client_fd,
         && request->method != HTTP_METHOD_HEAD)
     {
         send_error_response(client_fd, HTTP_STATUS_METHOD_NOT_ALLOWED);
-        logger_log_response(server->logger, 405, client_ip, method, target);
+        logger_log_response(server->logger, 405, info);
         return -1;
     }
     
@@ -346,9 +335,14 @@ static void handle_http_request(int client_fd, struct server *server,
     const char *method = http_method_to_string(request->method);
     const char *target = request->target->data;
     
-    logger_log_request(server->logger, method, target, client_ip);
+    struct log_request_info info;
+    info.request_type = method;
+    info.target = target;
+    info.client_ip = client_ip;
     
-    if (validate_request(request, client_fd, server, client_ip) < 0)
+    logger_log_request(server->logger, &info);
+    
+    if (validate_request(request, client_fd, server, client_ip, &info) < 0)
     {
         http_request_destroy(request);
         return;
@@ -368,7 +362,7 @@ static void handle_http_request(int client_fd, struct server *server,
     if (!response)
     {
         send_error_response(client_fd, HTTP_STATUS_NOT_FOUND);
-        logger_log_response(server->logger, 404, client_ip, method, target);
+        logger_log_response(server->logger, 404, &info);
         http_request_destroy(request);
         return;
     }
@@ -380,7 +374,7 @@ static void handle_http_request(int client_fd, struct server *server,
         string_destroy(response_str);
     }
     
-    logger_log_response(server->logger, 200, client_ip, method, target);
+    logger_log_response(server->logger, 200, &info);
     
     http_response_destroy(response);
     http_request_destroy(request);
@@ -398,11 +392,10 @@ void server_run_http(struct server *server)
     
     while (server->running && g_server_running)
     {
-        struct sockaddr_in client_addr;
-        socklen_t client_len = sizeof(client_addr);
+        union socket_addr_union client_addr;
+        socklen_t client_len = sizeof(client_addr.sin);
         
-        int client_fd = accept(server->socket_fd,
-                              (struct sockaddr *)&client_addr,
+        int client_fd = accept(server->socket_fd, &client_addr.sa,
                               &client_len);
         
         if (client_fd < 0)
@@ -416,7 +409,8 @@ void server_run_http(struct server *server)
         }
         
         char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &client_addr.sin.sin_addr, client_ip,
+                  INET_ADDRSTRLEN);
         
         handle_http_request(client_fd, server, client_ip);
         

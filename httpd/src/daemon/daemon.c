@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../config/config.h"
 
 int daemon_check_running(const char *pid_file, pid_t *pid)
 {
@@ -67,9 +66,9 @@ int daemon_remove_pid(const char *pid_file)
         return -1;
     }
     
-    if (unlink(pid_file) < 0 && errno != ENOENT)
+    if (remove(pid_file) < 0 && errno != ENOENT)
     {
-        perror("unlink");
+        perror("remove");
         return -1;
     }
     
@@ -175,8 +174,6 @@ int daemon_restart(struct server_config *config)
             perror("kill");
             return 1;
         }
-        
-        sleep(1);
     }
     
     daemon_remove_pid(config->pid_file);

@@ -15,16 +15,22 @@ struct logger
     char *server_name;
 };
 
+struct log_request_info
+{
+    const char *request_type;
+    const char *target;
+    const char *client_ip;
+};
+
 struct logger *logger_create(const struct server_config *config);
 void logger_destroy(struct logger *logger);
 
-void logger_log_request(struct logger *logger, const char *request_type,
-                        const char *target, const char *client_ip);
+void logger_log_request(struct logger *logger,
+                        const struct log_request_info *info);
 void logger_log_bad_request(struct logger *logger, const char *client_ip);
 
 void logger_log_response(struct logger *logger, int status_code,
-                         const char *client_ip, const char *request_type,
-                         const char *target);
+                         const struct log_request_info *info);
 void logger_log_bad_response(struct logger *logger, int status_code,
                              const char *client_ip);
 

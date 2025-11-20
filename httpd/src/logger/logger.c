@@ -2,12 +2,9 @@
 
 #include "logger.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-#include "../config/config.h"
 
 static char *string_duplicate(const char *src)
 {
@@ -124,15 +121,15 @@ void logger_destroy(struct logger *logger)
     free(logger);
 }
 
-void logger_log_request(struct logger *logger, const char *request_type,
-                        const char *target, const char *client_ip)
+void logger_log_request(struct logger *logger,
+                        const struct log_request_info *info)
 {
     if (!logger || !logger->enabled || !logger->output)
     {
         return;
     }
     
-    if (!request_type || !target || !client_ip)
+    if (!info || !info->request_type || !info->target || !info->client_ip)
     {
         return;
     }
@@ -141,7 +138,8 @@ void logger_log_request(struct logger *logger, const char *request_type,
     format_gmt_date(date_buffer, sizeof(date_buffer));
     
     fprintf(logger->output, "%s [%s] received %s on '%s' from %s\n",
-            date_buffer, logger->server_name, request_type, target, client_ip);
+            date_buffer, logger->server_name, info->request_type,
+            info->target, info->client_ip);
     
     fflush(logger->output);
 }
@@ -168,15 +166,14 @@ void logger_log_bad_request(struct logger *logger, const char *client_ip)
 }
 
 void logger_log_response(struct logger *logger, int status_code,
-                         const char *client_ip, const char *request_type,
-                         const char *target)
+                         const struct log_request_info *info)
 {
     if (!logger || !logger->enabled || !logger->output)
     {
         return;
     }
     
-    if (!client_ip || !request_type || !target)
+    if (!info || !info->client_ip || !info->request_type || !info->target)
     {
         return;
     }
@@ -186,8 +183,8 @@ void logger_log_response(struct logger *logger, int status_code,
     
     fprintf(logger->output,
             "%s [%s] responding with %d to %s for %s on '%s'\n",
-            date_buffer, logger->server_name, status_code, client_ip,
-            request_type, target);
+            date_buffer, logger->server_name, status_code, info->client_ip,
+            info->request_type, info->target);
     
     fflush(logger->output);
 }

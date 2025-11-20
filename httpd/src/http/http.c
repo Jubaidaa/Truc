@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../utils/string/string.h"
 #include "../utils/string/aux_string.h"
 
 static int string_compare_case_insensitive(const char *s1, const char *s2)
