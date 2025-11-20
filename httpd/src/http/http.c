@@ -6,14 +6,16 @@
 #include <string.h>
 
 #include "../utils/string/string.h"
-#include "../utils/aux_string.h"
+#include "../utils/string/aux_string.h"
 
 static int string_compare_case_insensitive(const char *s1, const char *s2)
 {
     while (*s1 && *s2)
     {
-        int c1 = tolower((unsigned char)*s1);
-        int c2 = tolower((unsigned char)*s2);
+        unsigned char uc1 = *s1;
+        unsigned char uc2 = *s2;
+        int c1 = tolower(uc1);
+        int c2 = tolower(uc2);
         
         if (c1 != c2)
         {
@@ -24,7 +26,9 @@ static int string_compare_case_insensitive(const char *s1, const char *s2)
         s2++;
     }
     
-    return tolower((unsigned char)*s1) - tolower((unsigned char)*s2);
+    unsigned char uc1 = *s1;
+    unsigned char uc2 = *s2;
+    return tolower(uc1) - tolower(uc2);
 }
 
 static const char *find_crlf(const char *data, size_t size)
@@ -328,6 +332,41 @@ static bool parse_header_line(struct http_request *request,
     return true;
 }
 
+static bool parse_headers(struct http_request *request, const char *data,
+                         size_t size, const char **body_start, size_t *body_len)
+{
+    const char *current = data;
+    size_t remaining = size;
+    
+    while (remaining > 0)
+    {
+        const char *line_end = find_crlf(current, remaining);
+        if (!line_end)
+        {
+            break;
+        }
+        
+        size_t line_len = line_end - current;
+        
+        if (line_len == 0)
+        {
+            current = line_end + 2;
+            *body_start = current;
+            *body_len = size - (current - data);
+            return true;
+        }
+        
+        parse_header_line(request, current, line_len);
+        
+        current = line_end + 2;
+        remaining = size - (current - data);
+    }
+    
+    *body_start = NULL;
+    *body_len = 0;
+    return true;
+}
+
 struct http_request *http_request_parse(const char *data, size_t size)
 {
     if (!data || size == 0)
@@ -361,34 +400,13 @@ struct http_request *http_request_parse(const char *data, size_t size)
     current = line_end + 2;
     remaining = size - (current - data);
     
-    while (remaining > 0)
-    {
-        line_end = find_crlf(current, remaining);
-        if (!line_end)
-        {
-            break;
-        }
-        
-        line_len = line_end - current;
-        
-        if (line_len == 0)
-        {
-            current = line_end + 2;
-            remaining = size - (current - data);
-            break;
-        }
-        
-        if (!parse_header_line(request, current, line_len))
-        {
-        }
-        
-        current = line_end + 2;
-        remaining = size - (current - data);
-    }
+    const char *body_start;
+    size_t body_len;
+    parse_headers(request, current, remaining, &body_start, &body_len);
     
-    if (remaining > 0)
+    if (body_start && body_len > 0)
     {
-        request->body = string_create(current, remaining);
+        request->body = string_create(body_start, body_len);
     }
     
     request->is_valid = true;
@@ -477,4 +495,3 @@ struct string *http_response_to_string(const struct http_response *response)
     
     return result;
 }
-

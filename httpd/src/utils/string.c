@@ -1,4 +1,4 @@
-#include "string/string.h"
+#include "string.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -141,4 +141,3 @@ void string_destroy(struct string *str)
         free(str);
     }
 }
-

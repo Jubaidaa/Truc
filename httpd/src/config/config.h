@@ -22,4 +22,3 @@ void config_print(const struct server_config *config);
 bool config_validate(const struct server_config *config);
 
 #endif // ! CONFIG_H
-

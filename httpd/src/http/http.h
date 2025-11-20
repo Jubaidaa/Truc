@@ -79,4 +79,3 @@ void http_response_destroy(struct http_response *response);
 struct string *http_response_to_string(const struct http_response *response);
 
 #endif // ! HTTP_H
-

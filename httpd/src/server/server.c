@@ -2,16 +2,25 @@
 
 #include "server.h"
 
-#include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "../config/config.h"
+#include "../http/http.h"
+#include "../logger/logger.h"
+#include "../utils/string/aux_string.h"
+#include "aux_socket.h"
+
+const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
+int inet_pton(int af, const char *src, void *dst);
+uint16_t htons(uint16_t hostshort);
 
 static volatile sig_atomic_t g_server_running = 1;
 
@@ -45,6 +54,39 @@ static void setup_signal_handlers(void)
     }
 }
 
+static int server_create_socket(struct server *server,
+                                struct server_config *config)
+{
+    server->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server->socket_fd == -1)
+    {
+        perror("socket");
+        return -1;
+    }
+    
+    int opt = 1;
+    if (setsockopt(server->socket_fd, SOL_SOCKET, SO_REUSEADDR,
+                   &opt, sizeof(opt)) < 0)
+    {
+        perror("setsockopt");
+        close(server->socket_fd);
+        return -1;
+    }
+    
+    memset(&server->address, 0, sizeof(server->address));
+    server->address.sin_family = AF_INET;
+    server->address.sin_port = htons(config->port);
+    
+    if (inet_pton(AF_INET, config->ip, &server->address.sin_addr) <= 0)
+    {
+        fprintf(stderr, "Invalid address: %s\n", config->ip);
+        close(server->socket_fd);
+        return -1;
+    }
+    
+    return 0;
+}
+
 struct server *server_create(struct server_config *config)
 {
     if (!config)
@@ -62,37 +104,19 @@ struct server *server_create(struct server_config *config)
     server->socket_fd = -1;
     server->running = false;
     
-    server->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server->socket_fd == -1)
+    if (server_create_socket(server, config) < 0)
     {
-        perror("socket");
-        free(server);
-        return NULL;
-    }
-    
-    int opt = 1;
-    if (setsockopt(server->socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                   &opt, sizeof(opt)) < 0)
-    {
-        perror("setsockopt");
-        close(server->socket_fd);
-        free(server);
-        return NULL;
-    }
-    
-    memset(&server->address, 0, sizeof(server->address));
-    server->address.sin_family = AF_INET;
-    server->address.sin_port = htons(config->port);
-    
-    if (inet_pton(AF_INET, config->ip, &server->address.sin_addr) <= 0)
-    {
-        fprintf(stderr, "Invalid address: %s\n", config->ip);
-        close(server->socket_fd);
         free(server);
         return NULL;
     }
     
     setup_signal_handlers();
+    
+    server->logger = logger_create(config);
+    if (!server->logger && config->log_enabled)
+    {
+        fprintf(stderr, "Warning: Failed to create logger\n");
+    }
     
     return server;
 }
@@ -104,7 +128,10 @@ int server_bind(struct server *server)
         return -1;
     }
     
-    if (bind(server->socket_fd, (struct sockaddr *)&server->address,
+    union socket_addr_union addr_union;
+    addr_union.sin = server->address;
+    
+    if (bind(server->socket_fd, &addr_union.sa,
              sizeof(server->address)) < 0)
     {
         perror("bind");
@@ -132,7 +159,234 @@ int server_listen(struct server *server)
     return 0;
 }
 
-void server_run_echo(struct server *server)
+static const char *get_mime_type(const char *path)
+{
+    const char *ext = strrchr(path, '.');
+    if (!ext)
+    {
+        return "application/octet-stream";
+    }
+    
+    if (strcmp(ext, ".html") == 0 || strcmp(ext, ".htm") == 0)
+    {
+        return "text/html";
+    }
+    if (strcmp(ext, ".txt") == 0)
+    {
+        return "text/plain";
+    }
+    if (strcmp(ext, ".css") == 0)
+    {
+        return "text/css";
+    }
+    if (strcmp(ext, ".js") == 0)
+    {
+        return "application/javascript";
+    }
+    if (strcmp(ext, ".json") == 0)
+    {
+        return "application/json";
+    }
+    if (strcmp(ext, ".png") == 0)
+    {
+        return "image/png";
+    }
+    if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0)
+    {
+        return "image/jpeg";
+    }
+    if (strcmp(ext, ".gif") == 0)
+    {
+        return "image/gif";
+    }
+    
+    return "application/octet-stream";
+}
+
+static struct string *read_file(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f)
+    {
+        return NULL;
+    }
+    
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    
+    if (size < 0)
+    {
+        fclose(f);
+        return NULL;
+    }
+    
+    char *buffer = malloc(size);
+    if (!buffer)
+    {
+        fclose(f);
+        return NULL;
+    }
+    
+    size_t read_size = fread(buffer, 1, size, f);
+    fclose(f);
+    
+    struct string *content = string_create(buffer, read_size);
+    free(buffer);
+    
+    return content;
+}
+
+static void send_error_response(int client_fd, enum http_status status)
+{
+    struct http_response *response = http_response_create(status);
+    struct string *response_str = http_response_to_string(response);
+    
+    if (response_str)
+    {
+        send(client_fd, response_str->data, response_str->size, 0);
+        string_destroy(response_str);
+    }
+    
+    http_response_destroy(response);
+}
+
+static void build_filepath(char *filepath, size_t size,
+                          struct server_config *config,
+                          struct http_request *request)
+{
+    if (strcmp(request->target->data, "/") == 0)
+    {
+        snprintf(filepath, size, "%s/%s",
+                config->root_dir, config->default_file);
+    }
+    else
+    {
+        snprintf(filepath, size, "%s%s",
+                config->root_dir, request->target->data);
+    }
+}
+
+static struct http_response *create_file_response(const char *filepath,
+                                                  enum http_method method)
+{
+    struct stat st;
+    if (stat(filepath, &st) < 0 || !S_ISREG(st.st_mode))
+    {
+        return NULL;
+    }
+    
+    struct http_response *response = http_response_create(HTTP_STATUS_OK);
+    
+    const char *mime = get_mime_type(filepath);
+    struct http_header *content_type = http_header_create("Content-Type", mime);
+    http_header_add(&response->headers, content_type);
+    
+    char content_len[32];
+    snprintf(content_len, sizeof(content_len), "%ld", st.st_size);
+    struct http_header *length = http_header_create("Content-Length",
+                                                     content_len);
+    http_header_add(&response->headers, length);
+    
+    if (method == HTTP_METHOD_GET)
+    {
+        response->body = read_file(filepath);
+    }
+    
+    return response;
+}
+
+static int validate_request(struct http_request *request, int client_fd,
+                            struct server *server, const char *client_ip)
+{
+    const char *method = http_method_to_string(request->method);
+    const char *target = request->target->data;
+    
+    if (strcmp(request->version->data, "HTTP/1.1") != 0)
+    {
+        send_error_response(client_fd, HTTP_STATUS_VERSION_NOT_SUPPORTED);
+        logger_log_response(server->logger, 505, client_ip, method, target);
+        return -1;
+    }
+    
+    if (request->method != HTTP_METHOD_GET
+        && request->method != HTTP_METHOD_HEAD)
+    {
+        send_error_response(client_fd, HTTP_STATUS_METHOD_NOT_ALLOWED);
+        logger_log_response(server->logger, 405, client_ip, method, target);
+        return -1;
+    }
+    
+    return 0;
+}
+
+static void handle_http_request(int client_fd, struct server *server,
+                                const char *client_ip)
+{
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_read = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+    
+    if (bytes_read <= 0)
+    {
+        return;
+    }
+    
+    buffer[bytes_read] = '\0';
+    
+    struct http_request *request = http_request_parse(buffer, bytes_read);
+    if (!request || !request->is_valid)
+    {
+        logger_log_bad_request(server->logger, client_ip);
+        send_error_response(client_fd, HTTP_STATUS_BAD_REQUEST);
+        logger_log_bad_response(server->logger, 400, client_ip);
+        http_request_destroy(request);
+        return;
+    }
+    
+    const char *method = http_method_to_string(request->method);
+    const char *target = request->target->data;
+    
+    logger_log_request(server->logger, method, target, client_ip);
+    
+    if (validate_request(request, client_fd, server, client_ip) < 0)
+    {
+        http_request_destroy(request);
+        return;
+    }
+    
+    if (!server->config->root_dir)
+    {
+        http_request_destroy(request);
+        return;
+    }
+    
+    char filepath[2048];
+    build_filepath(filepath, sizeof(filepath), server->config, request);
+    
+    struct http_response *response = create_file_response(filepath,
+                                                          request->method);
+    if (!response)
+    {
+        send_error_response(client_fd, HTTP_STATUS_NOT_FOUND);
+        logger_log_response(server->logger, 404, client_ip, method, target);
+        http_request_destroy(request);
+        return;
+    }
+    
+    struct string *response_str = http_response_to_string(response);
+    if (response_str)
+    {
+        send(client_fd, response_str->data, response_str->size, 0);
+        string_destroy(response_str);
+    }
+    
+    logger_log_response(server->logger, 200, client_ip, method, target);
+    
+    http_response_destroy(response);
+    http_request_destroy(request);
+}
+
+void server_run_http(struct server *server)
 {
     if (!server)
     {
@@ -140,7 +394,7 @@ void server_run_echo(struct server *server)
     }
     
     server->running = true;
-    printf("Echo server started. Press Ctrl+C to stop.\n");
+    printf("HTTP server started. Press Ctrl+C to stop.\n");
     
     while (server->running && g_server_running)
     {
@@ -163,45 +417,19 @@ void server_run_echo(struct server *server)
         
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
-        int client_port = ntohs(client_addr.sin_port);
         
-        printf("Connection from %s:%d\n", client_ip, client_port);
-        
-        char buffer[BUFFER_SIZE];
-        ssize_t bytes_read;
-        
-        while ((bytes_read = read(client_fd, buffer, BUFFER_SIZE)) > 0)
-        {
-            ssize_t total_written = 0;
-            while (total_written < bytes_read)
-            {
-                ssize_t bytes_written = write(client_fd,
-                                             buffer + total_written,
-                                             bytes_read - total_written);
-                if (bytes_written <= 0)
-                {
-                    break;
-                }
-                total_written += bytes_written;
-            }
-            
-            if (total_written < bytes_read)
-            {
-                break;
-            }
-        }
+        handle_http_request(client_fd, server, client_ip);
         
         close(client_fd);
-        printf("Connection closed from %s:%d\n", client_ip, client_port);
     }
     
     server->running = false;
-    printf("Echo server stopped.\n");
+    printf("HTTP server stopped.\n");
 }
 
 void server_run(struct server *server)
 {
-    server_run_echo(server);
+    server_run_http(server);
 }
 
 void server_stop(struct server *server)
@@ -225,6 +453,7 @@ void server_destroy(struct server *server)
         close(server->socket_fd);
     }
     
+    logger_destroy(server->logger);
+    
     free(server);
 }
-
