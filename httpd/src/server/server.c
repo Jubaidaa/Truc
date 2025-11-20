@@ -244,43 +244,6 @@ static void send_error_response(int client_fd, enum http_status status)
     http_response_destroy(response);
 }
 
-static int handle_invalid_request(int client_fd, struct server *server,
-                                   const char *client_ip)
-{
-    logger_log_bad_request(server->logger, client_ip);
-    send_error_response(client_fd, HTTP_STATUS_BAD_REQUEST);
-    logger_log_bad_response(server->logger, 400, client_ip);
-    return -1;
-}
-
-static int send_file_response(int client_fd, struct server *server,
-                               const struct log_request_info *info,
-                               struct http_request *request)
-{
-    char filepath[2048];
-    build_filepath(filepath, sizeof(filepath), server->config, request);
-
-    struct http_response *response =
-        create_file_response(filepath, request->method);
-    if (!response)
-    {
-        send_error_response(client_fd, HTTP_STATUS_NOT_FOUND);
-        logger_log_response(server->logger, 404, info);
-        return -1;
-    }
-
-    struct string *response_str = http_response_to_string(response);
-    if (response_str)
-    {
-        send(client_fd, response_str->data, response_str->size, 0);
-        string_destroy(response_str);
-    }
-
-    logger_log_response(server->logger, 200, info);
-    http_response_destroy(response);
-    return 0;
-}
-
 static void build_filepath(char *filepath, size_t size,
                            struct server_config *config,
                            struct http_request *request)
@@ -324,6 +287,43 @@ static struct http_response *create_file_response(const char *filepath,
     }
 
     return response;
+}
+
+static int handle_invalid_request(int client_fd, struct server *server,
+                                   const char *client_ip)
+{
+    logger_log_bad_request(server->logger, client_ip);
+    send_error_response(client_fd, HTTP_STATUS_BAD_REQUEST);
+    logger_log_bad_response(server->logger, 400, client_ip);
+    return -1;
+}
+
+static int send_file_response(int client_fd, struct server *server,
+                               const struct log_request_info *info,
+                               struct http_request *request)
+{
+    char filepath[2048];
+    build_filepath(filepath, sizeof(filepath), server->config, request);
+
+    struct http_response *response =
+        create_file_response(filepath, request->method);
+    if (!response)
+    {
+        send_error_response(client_fd, HTTP_STATUS_NOT_FOUND);
+        logger_log_response(server->logger, 404, info);
+        return -1;
+    }
+
+    struct string *response_str = http_response_to_string(response);
+    if (response_str)
+    {
+        send(client_fd, response_str->data, response_str->size, 0);
+        string_destroy(response_str);
+    }
+
+    logger_log_response(server->logger, 200, info);
+    http_response_destroy(response);
+    return 0;
 }
 
 static int validate_request(struct http_request *request, int client_fd,
