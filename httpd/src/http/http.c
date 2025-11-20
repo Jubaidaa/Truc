@@ -330,9 +330,14 @@ static bool parse_header_line(struct http_request *request, const char *line,
     return true;
 }
 
+struct parse_body_info
+{
+    const char *body_start;
+    size_t body_len;
+};
+
 static bool parse_headers(struct http_request *request, const char *data,
-                          size_t size, const char **body_start,
-                          size_t *body_len)
+                          size_t size, struct parse_body_info *body_info)
 {
     const char *current = data;
     size_t remaining = size;
@@ -350,8 +355,8 @@ static bool parse_headers(struct http_request *request, const char *data,
         if (line_len == 0)
         {
             current = line_end + 2;
-            *body_start = current;
-            *body_len = size - (current - data);
+            body_info->body_start = current;
+            body_info->body_len = size - (current - data);
             return true;
         }
 
@@ -361,8 +366,8 @@ static bool parse_headers(struct http_request *request, const char *data,
         remaining = size - (current - data);
     }
 
-    *body_start = NULL;
-    *body_len = 0;
+    body_info->body_start = NULL;
+    body_info->body_len = 0;
     return true;
 }
 
@@ -399,13 +404,12 @@ struct http_request *http_request_parse(const char *data, size_t size)
     current = line_end + 2;
     remaining = size - (current - data);
 
-    const char *body_start;
-    size_t body_len;
-    parse_headers(request, current, remaining, &body_start, &body_len);
+    struct parse_body_info body_info;
+    parse_headers(request, current, remaining, &body_info);
 
-    if (body_start && body_len > 0)
+    if (body_info.body_start && body_info.body_len > 0)
     {
-        request->body = string_create(body_start, body_len);
+        request->body = string_create(body_info.body_start, body_info.body_len);
     }
 
     request->is_valid = true;

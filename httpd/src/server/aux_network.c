@@ -4,8 +4,13 @@
 
 static int is_little_endian(void)
 {
-    uint16_t test = 1;
-    return *((uint8_t *)&test) == 1;
+    union
+    {
+        uint16_t value;
+        uint8_t bytes[2];
+    } test;
+    test.value = 1;
+    return test.bytes[0] == 1;
 }
 
 uint16_t my_htons(uint16_t hostshort)
@@ -49,8 +54,8 @@ int my_inet_pton_ipv4(const char *src, void *dst)
         return 0;
     }
 
-    uint8_t *addr = (uint8_t *)dst;
     const char *ptr = src;
+    uint8_t octets[4];
 
     for (int i = 0; i < 4; i++)
     {
@@ -60,7 +65,7 @@ int my_inet_pton_ipv4(const char *src, void *dst)
             return 0;
         }
 
-        addr[i] = (uint8_t)octet;
+        octets[i] = octet;
 
         if (i < 3)
         {
@@ -77,5 +82,6 @@ int my_inet_pton_ipv4(const char *src, void *dst)
         return 0;
     }
 
+    memcpy(dst, octets, 4);
     return 1;
 }
