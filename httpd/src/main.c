@@ -14,21 +14,21 @@ static int run_server(struct server_config *config)
         fprintf(stderr, "Failed to create server\n");
         return 1;
     }
-    
+
     if (server_bind(server) < 0)
     {
         server_destroy(server);
         return 1;
     }
-    
+
     if (server_listen(server) < 0)
     {
         server_destroy(server);
         return 1;
     }
-    
+
     server_run(server);
-    
+
     server_destroy(server);
     return 0;
 }
@@ -36,7 +36,7 @@ static int run_server(struct server_config *config)
 static int handle_daemon_action(struct server_config *config)
 {
     int result = 0;
-    
+
     if (strcmp(config->daemon_action, "start") == 0)
     {
         result = daemon_start(config);
@@ -58,7 +58,7 @@ static int handle_daemon_action(struct server_config *config)
             return result;
         }
     }
-    
+
     return -1;
 }
 
@@ -70,13 +70,13 @@ int main(int argc, char **argv)
         fprintf(stderr, "Failed to parse configuration\n");
         return 2;
     }
-    
+
     if (!config_validate(config))
     {
         config_destroy(config);
         return 2;
     }
-    
+
     if (config->daemon_action)
     {
         int result = handle_daemon_action(config);
@@ -86,11 +86,11 @@ int main(int argc, char **argv)
             return result;
         }
     }
-    
+
     config_print(config);
-    
+
     int ret = run_server(config);
     config_destroy(config);
-    
+
     return ret;
 }

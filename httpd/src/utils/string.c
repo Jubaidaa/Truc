@@ -1,4 +1,4 @@
-#include "string.h"
+#include "string/string.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -59,12 +59,12 @@ int string_compare_n_str(const struct string *str1, const char *str2, size_t n)
 
     size_t cmp_size = str1->size < n ? str1->size : n;
     int result = memcmp(str1->data, str2, cmp_size);
-    
+
     if (result != 0)
     {
         return result;
     }
-    
+
     if (str1->size < n)
     {
         return -1;
@@ -73,7 +73,7 @@ int string_compare_n_str(const struct string *str1, const char *str2, size_t n)
     {
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -83,13 +83,13 @@ int string_compare_str(const struct string *str1, const char *str2)
     {
         return -1;
     }
-    
+
     size_t str2_len = strlen(str2);
     if (str1->size != str2_len)
     {
         return str1->size < str2_len ? -1 : 1;
     }
-    
+
     return memcmp(str1->data, str2, str1->size);
 }
 
@@ -109,7 +109,7 @@ void string_concat_str(struct string *str, const char *to_concat, size_t size)
 
     memcpy(new_data + str->size, to_concat, size);
     new_data[new_size] = '\0';
-    
+
     str->data = new_data;
     str->size = new_size;
 }
@@ -129,7 +129,7 @@ struct string *string_duplicate(const struct string *src)
     {
         return NULL;
     }
-    
+
     return string_create(src->data, src->size);
 }
 

@@ -21,24 +21,24 @@ static int parse_ipv4_octet(const char **str)
 {
     int value = 0;
     int digits = 0;
-    
+
     while (**str >= '0' && **str <= '9')
     {
         value = value * 10 + (**str - '0');
         (*str)++;
         digits++;
-        
+
         if (value > 255 || digits > 3)
         {
             return -1;
         }
     }
-    
+
     if (digits == 0)
     {
         return -1;
     }
-    
+
     return value;
 }
 
@@ -48,10 +48,10 @@ int my_inet_pton_ipv4(const char *src, void *dst)
     {
         return 0;
     }
-    
+
     uint8_t *addr = (uint8_t *)dst;
     const char *ptr = src;
-    
+
     for (int i = 0; i < 4; i++)
     {
         int octet = parse_ipv4_octet(&ptr);
@@ -59,9 +59,9 @@ int my_inet_pton_ipv4(const char *src, void *dst)
         {
             return 0;
         }
-        
+
         addr[i] = (uint8_t)octet;
-        
+
         if (i < 3)
         {
             if (*ptr != '.')
@@ -71,11 +71,11 @@ int my_inet_pton_ipv4(const char *src, void *dst)
             ptr++;
         }
     }
-    
+
     if (*ptr != '\0')
     {
         return 0;
     }
-    
+
     return 1;
 }
