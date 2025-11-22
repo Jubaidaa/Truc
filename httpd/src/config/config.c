@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static char *string_duplicate_c(const char *src)
 {
@@ -129,7 +130,7 @@ static int parse_option(struct server_config *config, int c, const char *optarg,
     {
         print_usage(argv[0]);
         config_destroy(config);
-        exit(0);
+        _exit(0);
     }
     else if (c == 'l' || c == 'L' || c == 'p' || c == 'd')
     {

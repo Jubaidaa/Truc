@@ -126,7 +126,7 @@ int daemon_start(struct server_config *config)
 
     if (daemon_write_pid(config->pid_file) < 0)
     {
-        exit(1);
+        _exit(1);
     }
 
     return -1;

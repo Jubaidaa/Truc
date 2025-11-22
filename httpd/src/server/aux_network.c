@@ -1,20 +1,19 @@
 #include "aux_network.h"
 
 #include <string.h>
-#include "../utils/aux_types.h"
 
 static int is_little_endian(void)
 {
     union
     {
-        U16 value;
-        U8 bytes[2];
+        unsigned short value;
+        unsigned char bytes[2];
     } test;
     test.value = 1;
     return test.bytes[0] == 1;
 }
 
-U16 my_htons(U16 hostshort)
+unsigned short my_htons(unsigned short hostshort)
 {
     if (is_little_endian())
     {
@@ -56,7 +55,7 @@ int my_inet_pton_ipv4(const char *src, void *dst)
     }
 
     const char *ptr = src;
-    U8 octets[4];
+    unsigned char octets[4];
 
     for (int i = 0; i < 4; i++)
     {
