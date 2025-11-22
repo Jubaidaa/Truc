@@ -10,6 +10,7 @@ SRCS = \
     src/config/config.c \
     src/daemon/daemon.c \
     src/http/http.c \
+    src/http/header.c \
     src/logger/logger.c \
     src/server/aux_network.c \
     src/server/server.c \
@@ -61,3 +62,4 @@ clean:
 	rm -f $(TEST_DIR)/test_logger
 	rm -rf $(TEST_DIR)/__pycache__
 	rm -rf $(TEST_DIR)/.pytest_cache
+	
