@@ -3,16 +3,41 @@ import subprocess
 import time
 import socket
 import os
+import shutil
+import signal
 
 SERVER_BIN = "./httpd"
 SERVER_PORT = 8080
 SERVER_IP = "127.0.0.1"
+TEST_ROOT_DIR = "tests/www"
+LOG_FILE = "tests/test.log"
+
+def kill_process_on_port(port):
+    """Tue tout processus écoutant sur le port spécifié."""
+    try:
+        # Utilise lsof pour trouver le PID (fonctionne sur Linux/Mac)
+        cmd = f"lsof -t -i:{port}"
+        pids = subprocess.check_output(cmd, shell=True).decode().split()
+        for pid in pids:
+            if pid:
+                os.kill(int(pid), signal.SIGKILL)
+                time.sleep(0.5) # Laisser le temps au socket de se libérer
+    except subprocess.CalledProcessError:
+        pass # Personne sur le port, tant mieux
+
+def setup_test_files():
+    if os.path.exists(TEST_ROOT_DIR):
+        shutil.rmtree(TEST_ROOT_DIR)
+    os.makedirs(TEST_ROOT_DIR)
+    
+    with open(os.path.join(TEST_ROOT_DIR, "index.html"), "w") as f:
+        f.write("<h1>Test OK</h1>")
 
 def wait_for_port(port, timeout=5):
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            with socket.create_connection((SERVER_IP, port), timeout=1):
+            with socket.create_connection((SERVER_IP, port), timeout=0.5):
                 return True
         except (OSError, ConnectionRefusedError):
             time.sleep(0.1)
@@ -20,19 +45,46 @@ def wait_for_port(port, timeout=5):
 
 @pytest.fixture(scope="session")
 def server():
-    # Start server
+    # 1. Nettoyage préventif
+    kill_process_on_port(SERVER_PORT)
+    setup_test_files()
+    
+    # 2. Lancement du serveur avec tous les arguments obligatoires
+    # Le root-dir est CRITIQUE : s'il manque, le serveur coupe la connexion.
+    args = [
+        SERVER_BIN,
+        "--port", str(SERVER_PORT),
+        "--ip", SERVER_IP,
+        "--root-dir", TEST_ROOT_DIR,
+        "--default-file", "index.html",
+        "--log", "false"
+    ]
+    
     proc = subprocess.Popen(
-        [SERVER_BIN, "--port", str(SERVER_PORT), "--ip", SERVER_IP],
+        args,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
     
+    # 3. Vérification immédiate du crash
+    time.sleep(0.2)
+    if proc.poll() is not None:
+        raise RuntimeError(f"Le serveur a crashé au démarrage (Return code: {proc.returncode}). Vérifiez qu'il est bien compilé.")
+
+    # 4. Attente du port
     if not wait_for_port(SERVER_PORT):
         proc.terminate()
-        raise RuntimeError("Server failed to start")
+        raise RuntimeError("Le serveur ne répond pas sur le port 8080.")
 
     yield f"http://{SERVER_IP}:{SERVER_PORT}"
 
-    # Cleanup
+    # 5. Cleanup
     proc.terminate()
-    proc.wait()
+    try:
+        proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        
+    shutil.rmtree(TEST_ROOT_DIR, ignore_errors=True)
+    if os.path.exists(LOG_FILE):
+        os.remove(LOG_FILE)
