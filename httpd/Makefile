@@ -19,14 +19,15 @@ SRCS = \
 OBJS = $(SRCS:.c=.o)
 OBJS := $(OBJS:src/%=$(BUILD_DIR)/%)
 
-# Flags (Do not modify)
+# Flags (Strict EPITA)
 CFLAGS  = -Wall -Wextra -Werror -std=c99 -pedantic -g -D_POSIX_C_SOURCE=200809L
 CPPFLAGS =
 LDFLAGS =
 
-.PHONY: httpd check clean
+.PHONY: all httpd check clean
 
-# Main target (first one runs by default)
+all: httpd
+
 httpd: $(OBJS)
 	$(CC) $(LDFLAGS) $^ -o $(TARGET)
 
@@ -37,6 +38,8 @@ $(BUILD_DIR)/%.o: src/%.c
 check: httpd
 	@echo "--- Setting up tests ---"
 	@chmod +x $(TEST_DIR)/response_parser || true
+	@echo "--- Patching response_parser (NixOS fix) ---"
+	@patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 $(TEST_DIR)/response_parser 2>/dev/null || echo "Patchelf not found or not needed, skipping."
 	@echo "--- Building C Unit Tests ---"
 	$(CC) $(CFLAGS) -o $(TEST_DIR)/test_logger \
 		$(TEST_DIR)/test_logger.c \
