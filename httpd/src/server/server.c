@@ -57,17 +57,6 @@ static int server_create_socket(struct server *server,
         perror("socket");
         return -1;
     }
-
-    int opt = 1;
-    if (setsockopt(server->socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt,
-                   sizeof(opt))
-        < 0)
-    {
-        perror("setsockopt");
-        close(server->socket_fd);
-        return -1;
-    }
-
     memset(&server->address, 0, sizeof(server->address));
     server->address.sin.sin_family = AF_INET;
     server->address.sin.sin_port = my_htons(config->port);

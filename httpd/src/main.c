@@ -87,8 +87,6 @@ int main(int argc, char **argv)
         }
     }
 
-    config_print(config);
-
     int ret = run_server(config);
     config_destroy(config);
 

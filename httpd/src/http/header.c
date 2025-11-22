@@ -1,6 +1,7 @@
 #include "../utils/aux_string.h"
 #include "http.h"
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
