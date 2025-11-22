@@ -1,9 +1,5 @@
 CC      = gcc
 
-CFLAGS  = -Wall -Wextra -Werror -std=c99 -pedantic -g -D_POSIX_C_SOURCE=200809L
-CPPFLAGS =
-LDFLAGS =
-
 SRC_DIR   = src
 BUILD_DIR = build
 TARGET    = httpd
@@ -22,6 +18,10 @@ SRCS = \
 OBJS = $(SRCS:.c=.o)
 OBJS := $(OBJS:src/%=$(BUILD_DIR)/%)
 
+CFLAGS  = -Wall -Wextra -Werror -std=c99 -pedantic -g -D_POSIX_C_SOURCE=200809L
+CPPFLAGS =
+LDFLAGS =
+
 .PHONY: httpd check clean
 
 httpd: $(OBJS)
@@ -32,28 +32,27 @@ $(BUILD_DIR)/%.o: src/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 check: httpd
-	@echo "--- Setting up tests ---"
 	@chmod +x $(TEST_DIR)/response_parser || true
-	@echo "--- Patching response_parser (NixOS fix) ---"
-	@patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 $(TEST_DIR)/response_parser 2>/dev/null || echo "Patchelf not found or not needed, skipping."
-	@echo "--- Building C Unit Tests ---"
+	@patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 $(TEST_DIR)/response_parser 2>/dev/null || echo "Note: patchelf non installe ou non necessaire"
 	$(CC) $(CFLAGS) -o $(TEST_DIR)/test_logger \
 		$(TEST_DIR)/test_logger.c \
 		src/logger/logger.c \
 		src/config/config.c \
 		src/utils/string.c
-	@echo "--- Running C Unit Tests ---"
 	@$(TEST_DIR)/test_logger
-	@echo "--- Running Python Functional & Compliance Tests ---"
 	@python3 -m pytest $(TEST_DIR)
 
 clean:
-	rm -rf $(BUILD_DIR)
 	rm -f $(TARGET)
-	rm -f $(TEST_DIR)/test_logger
-	rm -rf $(TEST_DIR)/__pycache__
-	rm -rf $(TEST_DIR)/.pytest_cache
+	rm -rf $(BUILD_DIR)
+	rm -f $(TEST_DIR)/response_parser
+	rm -f config_reader.sh
+	rm -f littlegame.tar.gz
+	rm -rf test_game
 	rm -rf $(TEST_DIR)/www
 	rm -f $(TEST_DIR)/*.log
 	rm -f $(TEST_DIR)/*.pid
 	rm -f $(TEST_DIR)/*.tmp
+	rm -f $(TEST_DIR)/test_logger
+	rm -rf $(TEST_DIR)/__pycache__
+	rm -rf $(TEST_DIR)/.pytest_cache
