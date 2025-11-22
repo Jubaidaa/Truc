@@ -5,6 +5,7 @@ BUILD_DIR = build
 TARGET    = httpd
 TEST_DIR  = tests
 
+# Sources
 SRCS = \
     src/main.c \
     src/config/config.c \
@@ -18,14 +19,14 @@ SRCS = \
 OBJS = $(SRCS:.c=.o)
 OBJS := $(OBJS:src/%=$(BUILD_DIR)/%)
 
+# Flags (Do not modify)
 CFLAGS  = -Wall -Wextra -Werror -std=c99 -pedantic -g -D_POSIX_C_SOURCE=200809L
 CPPFLAGS =
 LDFLAGS =
 
-.PHONY: all httpd check clean fclean re
+.PHONY: httpd check clean
 
-all: httpd
-
+# Main target (first one runs by default)
 httpd: $(OBJS)
 	$(CC) $(LDFLAGS) $^ -o $(TARGET)
 
@@ -34,17 +35,26 @@ $(BUILD_DIR)/%.o: src/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 check: httpd
-	@echo "Running test suite..."
-	@chmod +x $(TEST_DIR)/run_tests.sh
-	@$(TEST_DIR)/run_tests.sh
+	@echo "--- Setting up tests ---"
+	@chmod +x $(TEST_DIR)/response_parser || true
+	@echo "--- Building C Unit Tests ---"
+	$(CC) $(CFLAGS) -o $(TEST_DIR)/test_logger \
+		$(TEST_DIR)/test_logger.c \
+		src/logger/logger.c \
+		src/config/config.c \
+		src/utils/string.c
+	@echo "--- Running C Unit Tests ---"
+	@$(TEST_DIR)/test_logger
+	@echo "--- Running Python Functional & Compliance Tests ---"
+	@python3 -m pytest $(TEST_DIR)
 
 clean:
 	rm -rf $(BUILD_DIR)
-
-fclean: clean
 	rm -f $(TARGET)
+	rm -f $(TEST_DIR)/test_logger
+	rm -rf $(TEST_DIR)/__pycache__
+	rm -rf $(TEST_DIR)/.pytest_cache
 	rm -rf $(TEST_DIR)/www
 	rm -f $(TEST_DIR)/*.log
 	rm -f $(TEST_DIR)/*.pid
-
-re: fclean all
+	rm -f $(TEST_DIR)/*.tmp
