@@ -4,15 +4,12 @@ import subprocess
 import os
 import tempfile
 
-# Configuration
 SERVER_IP = "127.0.0.1"
 SERVER_PORT = 8080
-# Utilise le chemin absolu du dossier tests pour trouver le parser
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 PARSER_BIN = os.path.join(TEST_DIR, "response_parser")
 
 def get_raw_response(request_payload):
-    """Envoie une requete brute et recupere la reponse brute."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(1.0)
     try:
@@ -36,16 +33,13 @@ def get_raw_response(request_payload):
 
 def validate_response(raw_response):
     """
-    Tente de valider avec response_parser.
-    Si le binaire est inutilisable (absent ou incompatible), on SKIP le test
-    au lieu de le faire echouer.
+    Tente response_parser.
+    Si le binaire est inutilisable (absent ou non executable), on SKIP le test. [casse pipe mais bon]
     """
-    # 1. Le fichier existe-t-il ?
     if not os.path.exists(PARSER_BIN):
         pytest.skip(f"Binaire manquant: {PARSER_BIN}")
         return True
-        
-    # 2. Est-il executable ?
+
     if not os.access(PARSER_BIN, os.X_OK):
         try:
             os.chmod(PARSER_BIN, 0o755)
@@ -53,7 +47,6 @@ def validate_response(raw_response):
             pytest.skip(f"Binaire non executable: {PARSER_BIN}")
             return True
 
-    # 3. Execution
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(raw_response)
         tmp_name = tmp.name
@@ -67,7 +60,6 @@ def validate_response(raw_response):
         )
         return ret == 0
     except OSError:
-        # Capture l'erreur [Errno 2] d'incompatibilite binaire
         pytest.skip(f"Impossible d'executer le binaire (Incompatible systeme).")
         return True
     except Exception as e:

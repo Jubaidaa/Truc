@@ -1,11 +1,14 @@
 CC      = gcc
 
+CFLAGS  = -Wall -Wextra -Werror -std=c99 -pedantic -g -D_POSIX_C_SOURCE=200809L
+CPPFLAGS =
+LDFLAGS =
+
 SRC_DIR   = src
 BUILD_DIR = build
 TARGET    = httpd
 TEST_DIR  = tests
 
-# Sources
 SRCS = \
     src/main.c \
     src/config/config.c \
@@ -19,14 +22,7 @@ SRCS = \
 OBJS = $(SRCS:.c=.o)
 OBJS := $(OBJS:src/%=$(BUILD_DIR)/%)
 
-# Flags (Strict EPITA)
-CFLAGS  = -Wall -Wextra -Werror -std=c99 -pedantic -g -D_POSIX_C_SOURCE=200809L
-CPPFLAGS =
-LDFLAGS =
-
-.PHONY: all httpd check clean
-
-all: httpd
+.PHONY: httpd check clean
 
 httpd: $(OBJS)
 	$(CC) $(LDFLAGS) $^ -o $(TARGET)

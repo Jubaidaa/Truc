@@ -13,9 +13,7 @@ TEST_ROOT_DIR = "tests/www"
 LOG_FILE = "tests/test.log"
 
 def kill_process_on_port(port):
-    """Tue tout processus écoutant sur le port spécifié."""
     try:
-        # Utilise lsof pour trouver le PID (fonctionne sur Linux/Mac)
         cmd = f"lsof -t -i:{port}"
         pids = subprocess.check_output(cmd, shell=True).decode().split()
         for pid in pids:
@@ -23,7 +21,7 @@ def kill_process_on_port(port):
                 os.kill(int(pid), signal.SIGKILL)
                 time.sleep(0.5) # Laisser le temps au socket de se libérer
     except subprocess.CalledProcessError:
-        pass # Personne sur le port, tant mieux
+        pass 
 
 def setup_test_files():
     if os.path.exists(TEST_ROOT_DIR):
@@ -45,12 +43,11 @@ def wait_for_port(port, timeout=5):
 
 @pytest.fixture(scope="session")
 def server():
-    # 1. Nettoyage préventif
+    # 1. Nettoyage 
     kill_process_on_port(SERVER_PORT)
     setup_test_files()
     
-    # 2. Lancement du serveur avec tous les arguments obligatoires
-    # Le root-dir est CRITIQUE : s'il manque, le serveur coupe la connexion.
+    # 2. Démarrage du serveur
     args = [
         SERVER_BIN,
         "--port", str(SERVER_PORT),
@@ -66,19 +63,19 @@ def server():
         stderr=subprocess.DEVNULL
     )
     
-    # 3. Vérification immédiate du crash
+    # 3. Vérification crash
     time.sleep(0.2)
     if proc.poll() is not None:
-        raise RuntimeError(f"Le serveur a crashé au démarrage (Return code: {proc.returncode}). Vérifiez qu'il est bien compilé.")
+        raise RuntimeError(f"Le serveur a crashé (Return code: {proc.returncode}).")
 
-    # 4. Attente du port
+    # 4. Attente port
     if not wait_for_port(SERVER_PORT):
         proc.terminate()
         raise RuntimeError("Le serveur ne répond pas sur le port 8080.")
 
     yield f"http://{SERVER_IP}:{SERVER_PORT}"
 
-    # 5. Cleanup
+    # 5. Clean
     proc.terminate()
     try:
         proc.wait(timeout=2)

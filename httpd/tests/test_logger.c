@@ -77,7 +77,7 @@ static void test_logger_log_request(void)
     config.server_name = "testserver";
     config.log_file = (char *)test_log;
     struct logger *logger = logger_create(&config);
-    
+
     struct log_request_info info = {
         .request_type = "GET",
         .target = "/index.html",
@@ -116,7 +116,7 @@ static void test_logger_log_bad_request(void)
     FILE *f = fopen(test_log, "r");
     char buffer[512];
     fgets(buffer, sizeof(buffer), f);
-    
+
     assert(strstr(buffer, "[testserver]") != NULL);
     assert(strstr(buffer, "received Bad Request") != NULL);
     assert(strstr(buffer, "from 192.168.1.1") != NULL);
@@ -145,7 +145,7 @@ static void test_logger_log_response(void)
     FILE *f = fopen(test_log, "r");
     char buffer[512];
     fgets(buffer, sizeof(buffer), f);
-    
+
     assert(strstr(buffer, "[testserver]") != NULL);
     assert(strstr(buffer, "responding with 200") != NULL);
     assert(strstr(buffer, "to 127.0.0.1") != NULL);
@@ -174,7 +174,7 @@ static void test_logger_log_bad_response(void)
     FILE *f = fopen(test_log, "r");
     char buffer[512];
     fgets(buffer, sizeof(buffer), f);
-    
+
     assert(strstr(buffer, "[testserver]") != NULL);
     assert(strstr(buffer, "responding with 400") != NULL);
     assert(strstr(buffer, "to 192.168.1.1") != NULL);
@@ -242,7 +242,7 @@ static void test_logger_multiple_logs(void)
 
     struct log_request_info info1 = { "GET", "/page1", "127.0.0.1" };
     struct log_request_info info2 = { "POST", "/data", "192.168.1.1" };
-    
+
     logger_log_request(logger, &info1);
     logger_log_response(logger, 200, &info1);
     logger_log_request(logger, &info2);

@@ -1,9 +1,9 @@
 #ifndef AUX_NETWORK_H
 #define AUX_NETWORK_H
 
-#include <stdint.h>
+#include "../utils/aux_types.h"
 
-uint16_t my_htons(uint16_t hostshort);
+U16 my_htons(U16 hostshort);
 int my_inet_pton_ipv4(const char *src, void *dst);
 
 #endif // ! AUX_NETWORK_H
