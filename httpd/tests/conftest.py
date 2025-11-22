@@ -19,7 +19,7 @@ def kill_process_on_port(port):
         for pid in pids:
             if pid:
                 os.kill(int(pid), signal.SIGKILL)
-                time.sleep(0.5) # Laisser le temps au socket de se libérer
+                time.sleep(0.5) # Attend que le port soit libre sinon ca peut foirer
     except subprocess.CalledProcessError:
         pass 
 
@@ -43,11 +43,9 @@ def wait_for_port(port, timeout=5):
 
 @pytest.fixture(scope="session")
 def server():
-    # 1. Nettoyage 
     kill_process_on_port(SERVER_PORT)
     setup_test_files()
     
-    # 2. Démarrage du serveur
     args = [
         SERVER_BIN,
         "--port", str(SERVER_PORT),
@@ -63,19 +61,16 @@ def server():
         stderr=subprocess.DEVNULL
     )
     
-    # 3. Vérification crash
     time.sleep(0.2)
     if proc.poll() is not None:
         raise RuntimeError(f"Le serveur a crashé (Return code: {proc.returncode}).")
 
-    # 4. Attente port
     if not wait_for_port(SERVER_PORT):
         proc.terminate()
         raise RuntimeError("Le serveur ne répond pas sur le port 8080.")
 
     yield f"http://{SERVER_IP}:{SERVER_PORT}"
 
-    # 5. Clean
     proc.terminate()
     try:
         proc.wait(timeout=2)

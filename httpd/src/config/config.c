@@ -39,7 +39,7 @@ static void print_usage(const char *program_name)
     fprintf(stderr, "  --root-dir DIR      Document root directory\n");
     fprintf(stderr,
             "  --default-file FILE Default file (default: index.html)\n");
-    fprintf(stderr, "  -h, --help          Show this help\n");
+    fprintf(stderr, "  -h, --help          Show help\n");
 }
 
 static struct server_config *config_create_defaults(void)

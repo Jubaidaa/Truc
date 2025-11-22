@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#include "string.h"
+#include "string/string.h"
 
 struct string *string_create_empty(size_t initial_capacity);
 int string_compare_str(const struct string *str1, const char *str2);

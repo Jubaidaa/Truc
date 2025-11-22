@@ -147,7 +147,6 @@ int daemon_stop(struct server_config *config)
         return 1;
     }
 
-    // Subject 3.3.4: "a SIGINT is sent to the server"
     if (kill(pid, SIGINT) < 0)
     {
         perror("kill");
@@ -169,7 +168,6 @@ int daemon_restart(struct server_config *config)
     pid_t pid;
     if (daemon_check_running(config->pid_file, &pid))
     {
-        // Subject 3.3.5: "a SIGINT is sent to the server"
         if (kill(pid, SIGINT) < 0)
         {
             perror("kill");
