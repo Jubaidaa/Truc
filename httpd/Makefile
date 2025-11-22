@@ -32,19 +32,24 @@ $(BUILD_DIR)/%.o: src/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 check: httpd
+	@if [ ! -d "env" ]; then \
+		echo "Besoin d'un env..."; \
+		python3 -m venv env; \
+	fi
 	@chmod +x $(TEST_DIR)/response_parser || true
-	@patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 $(TEST_DIR)/response_parser 2>/dev/null || echo "Note: patchelf non installe ou non necessaire"
+	@patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 $(TEST_DIR)/response_parser 2>/dev/null || echo "patchelf non installe ou pas besoin"
 	$(CC) $(CFLAGS) -o $(TEST_DIR)/test_logger \
 		$(TEST_DIR)/test_logger.c \
 		src/logger/logger.c \
 		src/config/config.c \
 		src/utils/string.c
 	@$(TEST_DIR)/test_logger
-	@python3 -m pytest $(TEST_DIR)
+	env/bin/python3 -m pytest $(TEST_DIR)
 
 clean:
 	rm -f $(TARGET)
 	rm -rf $(BUILD_DIR)
+	rm -rf env
 	rm -f $(TEST_DIR)/response_parser
 	rm -f config_reader.sh
 	rm -f littlegame.tar.gz
