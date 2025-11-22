@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "../http/http.h"
@@ -161,37 +162,21 @@ static const char *get_mime_type(const char *path)
     }
 
     if (strcmp(ext, ".html") == 0 || strcmp(ext, ".htm") == 0)
-    {
         return "text/html";
-    }
     if (strcmp(ext, ".txt") == 0)
-    {
         return "text/plain";
-    }
     if (strcmp(ext, ".css") == 0)
-    {
         return "text/css";
-    }
     if (strcmp(ext, ".js") == 0)
-    {
         return "application/javascript";
-    }
     if (strcmp(ext, ".json") == 0)
-    {
         return "application/json";
-    }
     if (strcmp(ext, ".png") == 0)
-    {
         return "image/png";
-    }
     if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0)
-    {
         return "image/jpeg";
-    }
     if (strcmp(ext, ".gif") == 0)
-    {
         return "image/gif";
-    }
 
     return "application/octet-stream";
 }
@@ -230,9 +215,32 @@ static struct string *read_file(const char *path)
     return content;
 }
 
+static void add_common_headers(struct http_response *response)
+{
+    if (!response)
+        return;
+
+    char date_buf[64];
+    time_t now = time(NULL);
+    struct tm *tm = gmtime(&now);
+
+    if (tm)
+    {
+        strftime(date_buf, sizeof(date_buf), "%a, %d %b %Y %H:%M:%S GMT", tm);
+        struct http_header *header = http_header_create("Date", date_buf);
+        http_header_add(&response->headers, header);
+    }
+
+    struct http_header *conn = http_header_create("Connection", "close");
+    http_header_add(&response->headers, conn);
+}
+
 static void send_error_response(int client_fd, enum http_status status)
 {
     struct http_response *response = http_response_create(status);
+
+    add_common_headers(response);
+
     struct string *response_str = http_response_to_string(response);
 
     if (response_str)
@@ -270,6 +278,7 @@ static struct http_response *create_file_response(const char *filepath,
     }
 
     struct http_response *response = http_response_create(HTTP_STATUS_OK);
+    add_common_headers(response);
 
     const char *mime = get_mime_type(filepath);
     struct http_header *content_type = http_header_create("Content-Type", mime);
@@ -290,7 +299,7 @@ static struct http_response *create_file_response(const char *filepath,
 }
 
 static int handle_invalid_request(int client_fd, struct server *server,
-                                   const char *client_ip)
+                                  const char *client_ip)
 {
     logger_log_bad_request(server->logger, client_ip);
     send_error_response(client_fd, HTTP_STATUS_BAD_REQUEST);
@@ -299,8 +308,8 @@ static int handle_invalid_request(int client_fd, struct server *server,
 }
 
 static int send_file_response(int client_fd, struct server *server,
-                               const struct log_request_info *info,
-                               struct http_request *request)
+                              const struct log_request_info *info,
+                              struct http_request *request)
 {
     char filepath[2048];
     build_filepath(filepath, sizeof(filepath), server->config, request);
