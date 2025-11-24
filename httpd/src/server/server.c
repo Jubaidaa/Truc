@@ -263,6 +263,9 @@ static void send_error_response(int client_fd, enum http_status status)
     struct http_header *date = http_header_create("Date", date_buf);
     http_header_add(&response->headers, date);
 
+    struct http_header *connection = http_header_create("Connection", "close");
+    http_header_add(&response->headers, connection);
+
     struct string *response_str = http_response_to_string(response);
 
     if (response_str)
@@ -305,6 +308,9 @@ static struct http_response *create_file_response(const char *filepath,
     format_gmt_date(date_buf, sizeof(date_buf));
     struct http_header *date = http_header_create("Date", date_buf);
     http_header_add(&response->headers, date);
+
+    struct http_header *connection = http_header_create("Connection", "close");
+    http_header_add(&response->headers, connection);
 
     const char *mime = get_mime_type(filepath);
     struct http_header *content_type = http_header_create("Content-Type", mime);

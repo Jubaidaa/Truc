@@ -57,7 +57,8 @@ static struct server_config *config_create_defaults(void)
     return config;
 }
 
-static void handle_log_option(struct server_config *config, const char *optarg)
+static void handle_log_option(struct server_config *config,
+                               const char *optarg)
 {
     if (strcmp(optarg, "true") == 0)
     {
@@ -122,8 +123,8 @@ static void parse_option_group2(struct server_config *config, int c,
     }
 }
 
-static int parse_option(struct server_config *config, int c, const char *optarg,
-                        char **argv)
+static int parse_option(struct server_config *config, int c,
+                        const char *optarg, char **argv)
 {
     if (c == 'h')
     {
@@ -158,19 +159,19 @@ struct server_config *config_parse(int argc, char **argv)
 
     static struct option long_options[] = {
         { "log-file", required_argument, 0, 'l' },
-        { "log_file", required_argument, 0, 'l' }, // Ajouté
+        { "log_file", required_argument, 0, 'l' },
         { "log", required_argument, 0, 'L' },
         { "pid-file", required_argument, 0, 'p' },
-        { "pid_file", required_argument, 0, 'p' }, // Déjà présent
+        { "pid_file", required_argument, 0, 'p' },
         { "daemon", required_argument, 0, 'd' },
         { "server-name", required_argument, 0, 's' },
-        { "server_name", required_argument, 0, 's' }, // Ajouté
+        { "server_name", required_argument, 0, 's' },
         { "port", required_argument, 0, 'P' },
         { "ip", required_argument, 0, 'i' },
         { "root-dir", required_argument, 0, 'r' },
-        { "root_dir", required_argument, 0, 'r' }, // Ajouté
+        { "root_dir", required_argument, 0, 'r' },
         { "default-file", required_argument, 0, 'f' },
-        { "default_file", required_argument, 0, 'f' }, // Ajouté
+        { "default_file", required_argument, 0, 'f' },
         { "help", no_argument, 0, 'h' },
         { 0, 0, 0, 0 }
     };
