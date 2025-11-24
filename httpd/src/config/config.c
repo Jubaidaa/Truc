@@ -28,9 +28,9 @@ static void print_usage(const char *program_name)
 {
     fprintf(stderr, "Usage: %s [OPTIONS]\n", program_name);
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  --log-file FILE      Path to log file\n");
+    fprintf(stderr, "  --log_file FILE      Path to log file\n");
     fprintf(stderr, "  --log true/false     Enable/disable logging\n");
-    fprintf(stderr, "  --pid-file FILE      Path to PID file\n");
+    fprintf(stderr, "  --pid_file FILE      Path to PID file\n");
     fprintf(stderr,
             "  --daemon ACTION      Daemon action (start/stop/restart)\n");
     fprintf(stderr, "  --server-name NAME   Server name\n");
