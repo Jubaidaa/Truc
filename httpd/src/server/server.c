@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "../http/http.h"
@@ -47,6 +48,27 @@ static void setup_signal_handlers(void)
     {
         perror("sigaction SIGTERM");
     }
+}
+
+static void format_gmt_date(char *buffer, size_t size)
+{
+    time_t now = time(NULL);
+    struct tm *gmt = gmtime(&now);
+
+    if (!gmt)
+    {
+        buffer[0] = '\0';
+        return;
+    }
+
+    static const char *days[] = { "Sun", "Mon", "Tue", "Wed",
+                                  "Thu", "Fri", "Sat" };
+    static const char *months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+    snprintf(buffer, size, "%s, %02d %s %04d %02d:%02d:%02d GMT",
+             days[gmt->tm_wday], gmt->tm_mday, months[gmt->tm_mon],
+             1900 + gmt->tm_year, gmt->tm_hour, gmt->tm_min, gmt->tm_sec);
 }
 
 static int server_create_socket(struct server *server,
@@ -126,8 +148,7 @@ int server_bind(struct server *server)
         return -1;
     }
 
-    if (bind(server->socket_fd, &server->address.sa,
-             sizeof(struct sockaddr_in))
+    if (bind(server->socket_fd, &server->address.sa, sizeof(struct sockaddr_in))
         < 0)
     {
         perror("bind");
@@ -236,6 +257,12 @@ static struct string *read_file(const char *path)
 static void send_error_response(int client_fd, enum http_status status)
 {
     struct http_response *response = http_response_create(status);
+
+    char date_buf[64];
+    format_gmt_date(date_buf, sizeof(date_buf));
+    struct http_header *date = http_header_create("Date", date_buf);
+    http_header_add(&response->headers, date);
+
     struct string *response_str = http_response_to_string(response);
 
     if (response_str)
@@ -273,6 +300,11 @@ static struct http_response *create_file_response(const char *filepath,
     }
 
     struct http_response *response = http_response_create(HTTP_STATUS_OK);
+
+    char date_buf[64];
+    format_gmt_date(date_buf, sizeof(date_buf));
+    struct http_header *date = http_header_create("Date", date_buf);
+    http_header_add(&response->headers, date);
 
     const char *mime = get_mime_type(filepath);
     struct http_header *content_type = http_header_create("Content-Type", mime);
