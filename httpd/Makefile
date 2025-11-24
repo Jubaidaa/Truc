@@ -19,7 +19,7 @@ SRCS = \
 OBJS = $(SRCS:.c=.o)
 OBJS := $(OBJS:src/%=$(BUILD_DIR)/%)
 
-CFLAGS  = -Wall -Wextra -Werror -std=c99 -pedantic -g -D_POSIX_C_SOURCE=200809L
+CFLAGS  = -Wall -Wextra -Werror -std=c99 -pedantic -Wvla
 CPPFLAGS =
 LDFLAGS =
 
