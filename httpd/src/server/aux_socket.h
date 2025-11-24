@@ -4,11 +4,10 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-struct sockaddr_in;
-
-union socket_addr_union {
-  struct sockaddr sa;
-  struct sockaddr_in sin;
+union socket_addr_union
+{
+    struct sockaddr sa;
+    struct sockaddr_storage ss;
 };
 
 #endif // ! AUX_SOCKET_H

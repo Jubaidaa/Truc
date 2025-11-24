@@ -37,6 +37,10 @@ check: httpd
 		echo "Besoin d'un env..."; \
 		python3 -m venv env; \
 	fi
+	@if [ -f $(TEST_DIR)/requirements.txt ]; then \
+		echo "Installation des dependances..."; \
+		env/bin/pip install -r $(TEST_DIR)/requirements.txt; \
+	fi
 	@chmod +x $(TEST_DIR)/response_parser || true
 	@patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 $(TEST_DIR)/response_parser 2>/dev/null || echo "patchelf non installe ou pas besoin"
 	$(CC) $(CFLAGS) -o $(TEST_DIR)/test_logger \
@@ -62,4 +66,4 @@ clean:
 	rm -f $(TEST_DIR)/test_logger
 	rm -rf $(TEST_DIR)/__pycache__
 	rm -rf $(TEST_DIR)/.pytest_cache
-	
+	rm -f *.tar.gz
