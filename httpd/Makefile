@@ -33,6 +33,8 @@ $(BUILD_DIR)/%.o: src/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 check: httpd
+	chmod +x tests/check_errors.sh
+	sh ./tests/check_errors.sh
 	@if [ ! -d "env" ]; then \
 		echo "Besoin d'un env..."; \
 		python3 -m venv env; \
