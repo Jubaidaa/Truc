@@ -50,8 +50,8 @@ static struct server_config *config_create_defaults(void)
         return NULL;
     }
 
-    config->port = 8080;
-    config->ip = string_duplicate_c("127.0.0.1");
+    config->port = 0;
+    config->ip = NULL;
     config->default_file = string_duplicate_c("index.html");
     config->log_enabled = true;
 
@@ -239,13 +239,31 @@ bool config_validate(const struct server_config *config)
 
     if (config->port < 1 || config->port > 65535)
     {
-        fprintf(stderr, "Error: Invalid port number\n");
+        fprintf(stderr, "Error: Invalid or missing port number\n");
         return false;
     }
 
     if (!config->ip)
     {
-        fprintf(stderr, "Error: No IP address specified\n");
+        fprintf(stderr, "Error: Missing IP address\n");
+        return false;
+    }
+
+    if (!config->server_name)
+    {
+        fprintf(stderr, "Error: Missing server name\n");
+        return false;
+    }
+
+    if (!config->root_dir)
+    {
+        fprintf(stderr, "Error: Missing root directory\n");
+        return false;
+    }
+
+    if (!config->pid_file)
+    {
+        fprintf(stderr, "Error: Missing PID file\n");
         return false;
     }
 
@@ -262,3 +280,4 @@ bool config_validate(const struct server_config *config)
 
     return true;
 }
+
