@@ -270,7 +270,15 @@ static bool check_null_bytes_in_headers(const char *data, size_t size)
         }
     }
 
-    size_t header_len = body_start ? body_start - data : size;
+    size_t header_len;
+    if (body_start)
+    {
+        header_len = body_start - data;
+    }
+    else
+    {
+        header_len = size;
+    }
 
     for (size_t i = 0; i < header_len; i++)
     {
