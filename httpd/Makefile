@@ -14,7 +14,7 @@ SRCS = \
     src/logger/logger.c \
     src/server/aux_network.c \
     src/server/server.c \
-    src/utils/string.c
+    src/utils/string/string.c
 
 OBJS = $(SRCS:.c=.o)
 OBJS := $(OBJS:src/%=$(BUILD_DIR)/%)
