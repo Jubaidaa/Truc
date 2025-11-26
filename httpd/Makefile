@@ -49,7 +49,7 @@ check: httpd
 		$(TEST_DIR)/test_logger.c \
 		src/logger/logger.c \
 		src/config/config.c \
-		src/utils/string.c
+		src/utils/string/string.c
 	@$(TEST_DIR)/test_logger
 	env/bin/python3 -m pytest $(TEST_DIR)
 

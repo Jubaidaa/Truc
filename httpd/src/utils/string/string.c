@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "aux_string.h"
+#include "../aux_string.h"
 
 struct string *string_create(const char *str, size_t size)
 {
