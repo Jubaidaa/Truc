@@ -20,7 +20,7 @@ def kill_process_on_port(port):
         for pid in pids:
             if pid:
                 os.kill(int(pid), signal.SIGKILL)
-                time.sleep(0.5) # Attend que le port soit libre sinon ca peut foirer
+                time.sleep(0.5)
     except subprocess.CalledProcessError:
         pass 
 
@@ -58,7 +58,7 @@ def server():
         "--root-dir", TEST_ROOT_DIR,
         "--default-file", "index.html",
         "--log", "false",
-        "--server-name", "test_server",
+        "--server-name", "localhost",
         "--pid-file", PID_FILE
     ]
     

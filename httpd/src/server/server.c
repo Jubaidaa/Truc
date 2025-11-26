@@ -4,6 +4,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -131,31 +132,35 @@ int server_listen(struct server *server)
 
 static struct string *read_file_content(const char *path)
 {
-    FILE *f = fopen(path, "rb");
-    if (!f)
+    int fd = open(path, O_RDONLY);
+    if (fd == -1)
     {
         return NULL;
     }
 
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
+    off_t size = lseek(fd, 0, SEEK_END);
     if (size < 0)
     {
-        fclose(f);
+        close(fd);
         return NULL;
     }
+    lseek(fd, 0, SEEK_SET);
 
     char *buffer = malloc(size);
     if (!buffer)
     {
-        fclose(f);
+        close(fd);
         return NULL;
     }
 
-    size_t read_size = fread(buffer, 1, size, f);
-    fclose(f);
+    ssize_t read_size = read(fd, buffer, size);
+    close(fd);
+
+    if (read_size < 0)
+    {
+        free(buffer);
+        return NULL;
+    }
 
     struct string *content = string_create(buffer, read_size);
     free(buffer);
@@ -165,8 +170,8 @@ static struct string *read_file_content(const char *path)
 static struct http_response *create_file_response(const char *filepath,
                                                   enum http_method method)
 {
-    FILE *f = fopen(filepath, "rb");
-    if (!f)
+    int fd = open(filepath, O_RDONLY);
+    if (fd == -1)
     {
         if (errno == EACCES)
         {
@@ -174,7 +179,7 @@ static struct http_response *create_file_response(const char *filepath,
         }
         return http_error_create_response(HTTP_STATUS_NOT_FOUND);
     }
-    fclose(f);
+    close(fd);
 
     struct http_response *resp = http_response_create(HTTP_STATUS_OK);
     if (!resp)
@@ -183,7 +188,7 @@ static struct http_response *create_file_response(const char *filepath,
     }
 
     struct stat st;
-    stat(filepath, &st);
+    lstat(filepath, &st);
 
     char buf[64];
     time_t now = time(NULL);

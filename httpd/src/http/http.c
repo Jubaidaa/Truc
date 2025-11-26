@@ -217,7 +217,6 @@ static bool parse_header_line(struct http_request *request, const char *line,
 
     for (size_t i = 0; i < name_len; i++)
     {
-        // Check spaces without casting
         if (name_buf[i] == ' ' || name_buf[i] == '\t')
         {
             free(name_buf);
@@ -300,7 +299,6 @@ static bool validate_content_length(struct http_request *request)
 
     for (const char *p = val; *p != '\0'; p++)
     {
-        // Check digit without casting
         if (*p < '0' || *p > '9')
         {
             return false;
