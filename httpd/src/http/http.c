@@ -270,7 +270,7 @@ static bool check_null_bytes_in_headers(const char *data, size_t size)
         }
     }
 
-    size_t header_len = body_start ? (size_t)(body_start - data) : size;
+    size_t header_len = body_start ? body_start - data : size;
 
     for (size_t i = 0; i < header_len; i++)
     {
@@ -308,14 +308,48 @@ static bool validate_content_length(struct http_request *request)
     return true;
 }
 
+static bool parse_all_headers(struct http_request *req, const char *data,
+                              size_t size, const char **cursor)
+{
+    const char *cur = *cursor;
+    size_t rem = size - (cur - data);
+
+    while (rem > 0)
+    {
+        const char *le = find_crlf(cur, rem);
+        if (!le)
+        {
+            break;
+        }
+
+        size_t len = le - cur;
+        if (len == 0)
+        {
+            cur = le + 2;
+            size_t used = cur - data;
+            if (size > used)
+            {
+                req->body = string_create(cur, size - used);
+            }
+            *cursor = cur;
+            return true;
+        }
+
+        if (!parse_header_line(req, cur, len))
+        {
+            return false;
+        }
+
+        cur = le + 2;
+        rem = size - (cur - data);
+    }
+    *cursor = cur;
+    return true;
+}
+
 struct http_request *http_request_parse(const char *data, size_t size)
 {
-    if (!data || size == 0)
-    {
-        return NULL;
-    }
-
-    if (check_null_bytes_in_headers(data, size))
+    if (!data || size == 0 || check_null_bytes_in_headers(data, size))
     {
         return NULL;
     }
@@ -327,47 +361,18 @@ struct http_request *http_request_parse(const char *data, size_t size)
     }
 
     const char *cur = data;
-    size_t rem = size;
-    const char *le = find_crlf(cur, rem);
-    if (!le)
-    {
-        http_request_destroy(req);
-        return NULL;
-    }
-
-    if (!parse_request_line(req, cur, le - cur))
+    const char *le = find_crlf(cur, size);
+    if (!le || !parse_request_line(req, cur, le - cur))
     {
         http_request_destroy(req);
         return NULL;
     }
 
     cur = le + 2;
-    rem = size - (cur - data);
-
-    while (rem > 0)
+    if (!parse_all_headers(req, data, size, &cur))
     {
-        le = find_crlf(cur, rem);
-        if (!le)
-        {
-            break;
-        }
-        size_t len = le - cur;
-        if (len == 0)
-        {
-            cur = le + 2;
-            if (size > (size_t)(cur - data))
-            {
-                req->body = string_create(cur, size - (cur - data));
-            }
-            break;
-        }
-        if (!parse_header_line(req, cur, len))
-        {
-            http_request_destroy(req);
-            return NULL;
-        }
-        cur = le + 2;
-        rem = size - (cur - data);
+        http_request_destroy(req);
+        return NULL;
     }
 
     if (!validate_content_length(req))
