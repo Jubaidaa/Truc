@@ -4,7 +4,6 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +13,7 @@
 #include <unistd.h>
 
 #include "../http/http.h"
+#include "../http/http_error.h"
 #include "../logger/logger.h"
 #include "../utils/aux_string.h"
 #include "aux_network.h"
@@ -31,44 +31,13 @@ static void signal_handler(int sig)
 static void setup_signal_handlers(void)
 {
     struct sigaction sa;
-
     signal(SIGPIPE, SIG_IGN);
-
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = signal_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
-
-    if (sigaction(SIGINT, &sa, NULL) == -1)
-    {
-        perror("sigaction SIGINT");
-    }
-
-    if (sigaction(SIGTERM, &sa, NULL) == -1)
-    {
-        perror("sigaction SIGTERM");
-    }
-}
-
-static void format_gmt_date(char *buffer, size_t size)
-{
-    time_t now = time(NULL);
-    struct tm *gmt = gmtime(&now);
-
-    if (!gmt)
-    {
-        buffer[0] = '\0';
-        return;
-    }
-
-    static const char *days[] = { "Sun", "Mon", "Tue", "Wed",
-                                  "Thu", "Fri", "Sat" };
-    static const char *months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-
-    snprintf(buffer, size, "%s, %02d %s %04d %02d:%02d:%02d GMT",
-             days[gmt->tm_wday], gmt->tm_mday, months[gmt->tm_mon],
-             1900 + gmt->tm_year, gmt->tm_hour, gmt->tm_min, gmt->tm_sec);
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
 }
 
 static int server_create_socket(struct server *server,
@@ -77,7 +46,6 @@ static int server_create_socket(struct server *server,
     server->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server->socket_fd == -1)
     {
-        perror("socket");
         return -1;
     }
 
@@ -86,7 +54,6 @@ static int server_create_socket(struct server *server,
                    sizeof(opt))
         < 0)
     {
-        perror("setsockopt");
         close(server->socket_fd);
         return -1;
     }
@@ -97,13 +64,11 @@ static int server_create_socket(struct server *server,
 
     if (my_inet_pton_ipv4(config->ip, &sin.sin_addr) <= 0)
     {
-        fprintf(stderr, "Invalid address: %s\n", config->ip);
         close(server->socket_fd);
         return -1;
     }
 
     memcpy(&server->address.ss, &sin, sizeof(sin));
-
     return 0;
 }
 
@@ -131,13 +96,7 @@ struct server *server_create(struct server_config *config)
     }
 
     setup_signal_handlers();
-
     server->logger = logger_create(config);
-    if (!server->logger && config->log_enabled)
-    {
-        fprintf(stderr, "Warning: Failed to create logger\n");
-    }
-
     return server;
 }
 
@@ -151,11 +110,8 @@ int server_bind(struct server *server)
     if (bind(server->socket_fd, &server->address.sa, sizeof(struct sockaddr_in))
         < 0)
     {
-        perror("bind");
         return -1;
     }
-
-    printf("Server bound to %s:%d\n", server->config->ip, server->config->port);
     return 0;
 }
 
@@ -168,59 +124,12 @@ int server_listen(struct server *server)
 
     if (listen(server->socket_fd, BACKLOG) < 0)
     {
-        perror("listen");
         return -1;
     }
-
-    printf("Server listening (backlog: %d)\n", BACKLOG);
     return 0;
 }
 
-static const char *get_mime_type(const char *path)
-{
-    const char *ext = strrchr(path, '.');
-    if (!ext)
-    {
-        return "application/octet-stream";
-    }
-
-    if (strcmp(ext, ".html") == 0 || strcmp(ext, ".htm") == 0)
-    {
-        return "text/html";
-    }
-    if (strcmp(ext, ".txt") == 0)
-    {
-        return "text/plain";
-    }
-    if (strcmp(ext, ".css") == 0)
-    {
-        return "text/css";
-    }
-    if (strcmp(ext, ".js") == 0)
-    {
-        return "application/javascript";
-    }
-    if (strcmp(ext, ".json") == 0)
-    {
-        return "application/json";
-    }
-    if (strcmp(ext, ".png") == 0)
-    {
-        return "image/png";
-    }
-    if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0)
-    {
-        return "image/jpeg";
-    }
-    if (strcmp(ext, ".gif") == 0)
-    {
-        return "image/gif";
-    }
-
-    return "application/octet-stream";
-}
-
-static struct string *read_file(const char *path)
+static struct string *read_file_content(const char *path)
 {
     FILE *f = fopen(path, "rb");
     if (!f)
@@ -250,234 +159,185 @@ static struct string *read_file(const char *path)
 
     struct string *content = string_create(buffer, read_size);
     free(buffer);
-
     return content;
-}
-
-static void send_error_response(int client_fd, enum http_status status)
-{
-    struct http_response *response = http_response_create(status);
-
-    char date_buf[64];
-    format_gmt_date(date_buf, sizeof(date_buf));
-    struct http_header *date = http_header_create("Date", date_buf);
-    http_header_add(&response->headers, date);
-
-    struct http_header *connection = http_header_create("Connection", "close");
-    http_header_add(&response->headers, connection);
-
-    struct string *response_str = http_response_to_string(response);
-
-    if (response_str)
-    {
-        write(client_fd, response_str->data, response_str->size);
-        string_destroy(response_str);
-    }
-
-    http_response_destroy(response);
-}
-
-static void build_filepath(char *filepath, size_t size,
-                           struct server_config *config,
-                           struct http_request *request)
-{
-    if (strcmp(request->target->data, "/") == 0)
-    {
-        snprintf(filepath, size, "%s/%s", config->root_dir,
-                 config->default_file);
-    }
-    else
-    {
-        snprintf(filepath, size, "%s%s", config->root_dir,
-                 request->target->data);
-    }
 }
 
 static struct http_response *create_file_response(const char *filepath,
                                                   enum http_method method)
 {
-    struct stat st;
-    if (lstat(filepath, &st) < 0 || !S_ISREG(st.st_mode))
+    FILE *f = fopen(filepath, "rb");
+    if (!f)
+    {
+        if (errno == EACCES)
+        {
+            return http_error_create_response(HTTP_STATUS_FORBIDDEN);
+        }
+        return http_error_create_response(HTTP_STATUS_NOT_FOUND);
+    }
+    fclose(f);
+
+    struct http_response *resp = http_response_create(HTTP_STATUS_OK);
+    if (!resp)
     {
         return NULL;
     }
 
-    struct http_response *response = http_response_create(HTTP_STATUS_OK);
+    struct stat st;
+    stat(filepath, &st);
 
-    char date_buf[64];
-    format_gmt_date(date_buf, sizeof(date_buf));
-    struct http_header *date = http_header_create("Date", date_buf);
-    http_header_add(&response->headers, date);
+    char buf[64];
+    time_t now = time(NULL);
+    strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&now));
+    http_header_add(&resp->headers, http_header_create("Date", buf));
+    http_header_add(&resp->headers,
+                    http_header_create("Connection", "close"));
 
-    struct http_header *connection = http_header_create("Connection", "close");
-    http_header_add(&response->headers, connection);
-
-    const char *mime = get_mime_type(filepath);
-    struct http_header *content_type = http_header_create("Content-Type", mime);
-    http_header_add(&response->headers, content_type);
-
-    char content_len[32];
-    snprintf(content_len, sizeof(content_len), "%ld", st.st_size);
-    struct http_header *length =
-        http_header_create("Content-Length", content_len);
-    http_header_add(&response->headers, length);
+    char len[32];
+    snprintf(len, sizeof(len), "%ld", st.st_size);
+    http_header_add(&resp->headers, http_header_create("Content-Length", len));
 
     if (method == HTTP_METHOD_GET)
     {
-        response->body = read_file(filepath);
+        resp->body = read_file_content(filepath);
     }
-
-    return response;
+    return resp;
 }
 
-static int handle_invalid_request(int client_fd, struct server *server,
-                                  const char *client_ip)
+static int check_host_header(struct http_request *req,
+                             struct server_config *conf)
 {
-    logger_log_bad_request(server->logger, client_ip);
-    send_error_response(client_fd, HTTP_STATUS_BAD_REQUEST);
-    logger_log_bad_response(server->logger, 400, client_ip);
-    return -1;
-}
-
-static int send_file_response(int client_fd, struct server *server,
-                              const struct log_request_info *info,
-                              struct http_request *request)
-{
-    char filepath[2048];
-    build_filepath(filepath, sizeof(filepath), server->config, request);
-
-    struct http_response *response =
-        create_file_response(filepath, request->method);
-    if (!response)
+    struct http_header *h = http_header_find(req->headers, "Host");
+    if (!h)
     {
-        send_error_response(client_fd, HTTP_STATUS_NOT_FOUND);
-        logger_log_response(server->logger, 404, info);
         return -1;
     }
 
-    struct string *response_str = http_response_to_string(response);
-    if (response_str)
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", conf->port);
+
+    struct string *host_ip_port = string_create(conf->ip, strlen(conf->ip));
+    string_concat_str(host_ip_port, ":", 1);
+    string_concat_str(host_ip_port, port_str, strlen(port_str));
+
+    int valid = 0;
+    if (string_compare_str(h->value, conf->server_name) == 0)
     {
-        write(client_fd, response_str->data, response_str->size);
-        string_destroy(response_str);
+        valid = 1;
+    }
+    else if (string_compare_str(h->value, conf->ip) == 0)
+    {
+        valid = 1;
+    }
+    else if (string_compare_str(h->value, host_ip_port->data) == 0)
+    {
+        valid = 1;
     }
 
-    logger_log_response(server->logger, 200, info);
-    http_response_destroy(response);
-    return 0;
+    string_destroy(host_ip_port);
+    return valid ? 0 : -1;
 }
 
-static int validate_request(struct http_request *request, int client_fd,
-                            struct server *server,
-                            const struct log_request_info *info)
+static void perform_file_response(int client_fd, struct server *server,
+                                  struct http_request *req, char *path,
+                                  struct log_request_info *info)
 {
-    if (strcmp(request->version->data, "HTTP/1.1") != 0)
-    {
-        send_error_response(client_fd, HTTP_STATUS_VERSION_NOT_SUPPORTED);
-        logger_log_response(server->logger, 505, info);
-        return -1;
-    }
-
-    if (request->method != HTTP_METHOD_GET
-        && request->method != HTTP_METHOD_HEAD)
-    {
-        send_error_response(client_fd, HTTP_STATUS_METHOD_NOT_ALLOWED);
-        logger_log_response(server->logger, 405, info);
-        return -1;
-    }
-
-    return 0;
-}
-
-static void handle_http_request(int client_fd, struct server *server,
-                                const char *client_ip)
-{
-    char buffer[BUFFER_SIZE];
-    ssize_t bytes_read = read(client_fd, buffer, BUFFER_SIZE - 1);
-
-    if (bytes_read <= 0)
+    struct http_response *resp = create_file_response(path, req->method);
+    if (!resp)
     {
         return;
     }
 
-    buffer[bytes_read] = '\0';
-
-    struct http_request *request = http_request_parse(buffer, bytes_read);
-    if (!request || !request->is_valid)
+    struct string *s = http_response_to_string(resp);
+    if (s)
     {
-        handle_invalid_request(client_fd, server, client_ip);
-        http_request_destroy(request);
-        return;
+        write(client_fd, s->data, s->size);
+        string_destroy(s);
     }
+    logger_log_response(server->logger, resp->status, info);
+    http_response_destroy(resp);
+}
 
-    struct log_request_info info;
-    info.request_type = http_method_to_string(request->method);
-    info.target = request->target->data;
-    info.client_ip = client_ip;
-
+static void handle_request_logic(int client_fd, struct server *server,
+                                 struct http_request *req,
+                                 const char *client_ip)
+{
+    struct log_request_info info = { http_method_to_string(req->method),
+                                     req->target->data, client_ip };
     logger_log_request(server->logger, &info);
 
-    if (validate_request(request, client_fd, server, &info) < 0)
+    if (strncmp(req->version->data, "HTTP/", 5) != 0)
     {
-        http_request_destroy(request);
+        http_error_send(client_fd, HTTP_STATUS_BAD_REQUEST);
+        logger_log_response(server->logger, 400, &info);
         return;
     }
-
-    if (!server->config->root_dir)
+    if (strcmp(req->version->data, "HTTP/1.1") != 0)
     {
-        http_request_destroy(request);
+        http_error_send(client_fd, HTTP_STATUS_VERSION_NOT_SUPPORTED);
+        logger_log_response(server->logger, 505, &info);
         return;
     }
-
-    send_file_response(client_fd, server, &info, request);
-    http_request_destroy(request);
-}
-
-void server_run_http(struct server *server)
-{
-    if (!server)
+    if (check_host_header(req, server->config) < 0)
     {
+        http_error_send(client_fd, HTTP_STATUS_BAD_REQUEST);
+        logger_log_response(server->logger, 400, &info);
         return;
     }
-
-    server->running = true;
-    printf("HTTP server started. Press Ctrl+C to stop.\n");
-
-    while (server->running && g_server_running)
+    if (req->method != HTTP_METHOD_GET && req->method != HTTP_METHOD_HEAD)
     {
-        union socket_addr_union client_addr;
-        socklen_t client_len = sizeof(client_addr.sa);
-
-        int client_fd = accept(server->socket_fd, &client_addr.sa, &client_len);
-
-        if (client_fd < 0)
-        {
-            if (errno == EINTR)
-            {
-                continue;
-            }
-            perror("accept");
-            continue;
-        }
-
-        struct sockaddr_in client_sin;
-        memcpy(&client_sin, &client_addr.sa, sizeof(client_sin));
-
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &client_sin.sin_addr, client_ip, INET_ADDRSTRLEN);
-
-        handle_http_request(client_fd, server, client_ip);
-
-        close(client_fd);
+        http_error_send(client_fd, HTTP_STATUS_METHOD_NOT_ALLOWED);
+        logger_log_response(server->logger, 405, &info);
+        return;
     }
-
-    server->running = false;
-    printf("HTTP server stopped.\n");
+    char path[2048];
+    const char *target = req->target->data;
+    if (strcmp(target, "/") == 0)
+        snprintf(path, sizeof(path), "%s/%s", server->config->root_dir,
+                 server->config->default_file);
+    else
+        snprintf(path, sizeof(path), "%s%s", server->config->root_dir, target);
+    perform_file_response(client_fd, server, req, path, &info);
 }
 
 void server_run(struct server *server)
 {
-    server_run_http(server);
+    server->running = true;
+    while (server->running && g_server_running)
+    {
+        union socket_addr_union addr;
+        socklen_t len = sizeof(addr.sa);
+
+        int client_fd = accept(server->socket_fd, &addr.sa, &len);
+        if (client_fd < 0)
+        {
+            continue;
+        }
+
+        char client_ip[INET_ADDRSTRLEN];
+        struct sockaddr_in client_sin;
+        memcpy(&client_sin, &addr.ss, sizeof(client_sin));
+        inet_ntop(AF_INET, &client_sin.sin_addr, client_ip, INET_ADDRSTRLEN);
+
+        char buf[BUFFER_SIZE];
+        ssize_t n = read(client_fd, buf, BUFFER_SIZE);
+
+        if (n > 0)
+        {
+            struct http_request *req = http_request_parse(buf, n);
+            if (req && req->is_valid)
+            {
+                handle_request_logic(client_fd, server, req, client_ip);
+            }
+            else
+            {
+                logger_log_bad_request(server->logger, client_ip);
+                http_error_send(client_fd, HTTP_STATUS_BAD_REQUEST);
+                logger_log_bad_response(server->logger, 400, client_ip);
+            }
+            http_request_destroy(req);
+        }
+        close(client_fd);
+    }
 }
 
 void server_stop(struct server *server)
@@ -502,6 +362,5 @@ void server_destroy(struct server *server)
     }
 
     logger_destroy(server->logger);
-
     free(server);
 }

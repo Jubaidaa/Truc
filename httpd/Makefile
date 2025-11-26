@@ -11,6 +11,7 @@ SRCS = \
     src/daemon/daemon.c \
     src/http/http.c \
     src/http/header.c \
+    src/http/http_error.c \
     src/logger/logger.c \
     src/server/aux_network.c \
     src/server/server.c \

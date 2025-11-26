@@ -1,6 +1,5 @@
 #include "http.h"
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +8,12 @@
 
 static const char *find_crlf(const char *data, size_t size)
 {
-    for (size_t i = 0; i < size - 1; i++)
+    if (size < 2)
+    {
+        return NULL;
+    }
+
+    for (size_t i = 0; i + 1 < size; i++)
     {
         if (data[i] == '\r' && data[i + 1] == '\n')
         {
@@ -25,40 +29,38 @@ enum http_method http_method_from_string(const char *method)
     {
         return HTTP_METHOD_UNKNOWN;
     }
-
     if (strcmp(method, "GET") == 0)
     {
         return HTTP_METHOD_GET;
     }
-    else if (strcmp(method, "HEAD") == 0)
+    if (strcmp(method, "HEAD") == 0)
     {
         return HTTP_METHOD_HEAD;
     }
-    else if (strcmp(method, "POST") == 0)
+    if (strcmp(method, "POST") == 0)
     {
         return HTTP_METHOD_POST;
     }
-    else if (strcmp(method, "PUT") == 0)
+    if (strcmp(method, "PUT") == 0)
     {
         return HTTP_METHOD_PUT;
     }
-    else if (strcmp(method, "DELETE") == 0)
+    if (strcmp(method, "DELETE") == 0)
     {
         return HTTP_METHOD_DELETE;
     }
-    else if (strcmp(method, "CONNECT") == 0)
+    if (strcmp(method, "CONNECT") == 0)
     {
         return HTTP_METHOD_CONNECT;
     }
-    else if (strcmp(method, "OPTIONS") == 0)
+    if (strcmp(method, "OPTIONS") == 0)
     {
         return HTTP_METHOD_OPTIONS;
     }
-    else if (strcmp(method, "TRACE") == 0)
+    if (strcmp(method, "TRACE") == 0)
     {
         return HTTP_METHOD_TRACE;
     }
-
     return HTTP_METHOD_UNKNOWN;
 }
 
@@ -119,10 +121,8 @@ struct http_request *http_request_create(void)
     {
         return NULL;
     }
-
     request->method = HTTP_METHOD_UNKNOWN;
     request->is_valid = false;
-
     return request;
 }
 
@@ -132,7 +132,6 @@ void http_request_destroy(struct http_request *request)
     {
         return;
     }
-
     string_destroy(request->method_str);
     string_destroy(request->target);
     string_destroy(request->version);
@@ -141,50 +140,56 @@ void http_request_destroy(struct http_request *request)
     free(request);
 }
 
+static bool parse_request_line_parts(struct http_request *request,
+                                     const char *line, size_t line_len)
+{
+    char *buf = malloc(line_len + 1);
+    if (!buf)
+    {
+        return false;
+    }
+    memcpy(buf, line, line_len);
+    buf[line_len] = '\0';
+
+    char *space1 = strchr(buf, ' ');
+    if (!space1)
+    {
+        free(buf);
+        return false;
+    }
+    *space1 = '\0';
+    request->method_str = string_create(buf, space1 - buf);
+    request->method = http_method_from_string(buf);
+
+    char *target = space1 + 1;
+    char *space2 = strchr(target, ' ');
+    if (!space2)
+    {
+        free(buf);
+        return false;
+    }
+    *space2 = '\0';
+    request->target = string_create(target, space2 - target);
+    request->version = string_create(space2 + 1, strlen(space2 + 1));
+
+    free(buf);
+    return true;
+}
+
 static bool parse_request_line(struct http_request *request, const char *line,
                                size_t line_len)
 {
-    const char *space1 = memchr(line, ' ', line_len);
-    if (!space1)
+    if (!parse_request_line_parts(request, line, line_len))
     {
         return false;
     }
 
-    size_t method_len = space1 - line;
-    request->method_str = string_create(line, method_len);
-    if (!request->method_str)
+    if (!request->method_str || !request->target || !request->version)
     {
         return false;
     }
 
-    char method_buf[32];
-    if (method_len >= sizeof(method_buf))
-    {
-        return false;
-    }
-    memcpy(method_buf, line, method_len);
-    method_buf[method_len] = '\0';
-    request->method = http_method_from_string(method_buf);
-
-    const char *target_start = space1 + 1;
-    size_t remaining = line_len - (target_start - line);
-    const char *space2 = memchr(target_start, ' ', remaining);
-    if (!space2)
-    {
-        return false;
-    }
-
-    size_t target_len = space2 - target_start;
-    request->target = string_create(target_start, target_len);
-    if (!request->target)
-    {
-        return false;
-    }
-
-    const char *version_start = space2 + 1;
-    size_t version_len = line_len - (version_start - line);
-    request->version = string_create(version_start, version_len);
-    if (!request->version)
+    if (request->target->size == 0 || request->target->data[0] != '/')
     {
         return false;
     }
@@ -202,78 +207,106 @@ static bool parse_header_line(struct http_request *request, const char *line,
     }
 
     size_t name_len = colon - line;
-    char name_buf[256];
-    if (name_len >= sizeof(name_buf))
+    char *name_buf = malloc(name_len + 1);
+    if (!name_buf)
     {
         return false;
     }
     memcpy(name_buf, line, name_len);
     name_buf[name_len] = '\0';
 
-    const char *value_start = colon + 1;
-    size_t remaining = line_len - (value_start - line);
-    while (remaining > 0 && (*value_start == ' ' || *value_start == '\t'))
+    for (size_t i = 0; i < name_len; i++)
     {
-        value_start++;
-        remaining--;
+        // Check spaces without casting
+        if (name_buf[i] == ' ' || name_buf[i] == '\t')
+        {
+            free(name_buf);
+            return false;
+        }
     }
 
-    char value_buf[4096];
-    if (remaining >= sizeof(value_buf))
+    const char *v_start = colon + 1;
+    size_t rem = line_len - (v_start - line);
+    while (rem > 0 && (*v_start == ' ' || *v_start == '\t'))
+    {
+        v_start++;
+        rem--;
+    }
+
+    char *val_buf = malloc(rem + 1);
+    if (!val_buf)
+    {
+        free(name_buf);
+        return false;
+    }
+    memcpy(val_buf, v_start, rem);
+    val_buf[rem] = '\0';
+
+    struct http_header *h = http_header_create(name_buf, val_buf);
+    free(name_buf);
+    free(val_buf);
+
+    if (!h)
     {
         return false;
     }
-    memcpy(value_buf, value_start, remaining);
-    value_buf[remaining] = '\0';
-
-    struct http_header *header = http_header_create(name_buf, value_buf);
-    if (!header)
-    {
-        return false;
-    }
-
-    http_header_add(&request->headers, header);
+    http_header_add(&request->headers, h);
     return true;
 }
 
-struct parse_body_info
+static bool check_null_bytes_in_headers(const char *data, size_t size)
 {
-    const char *body_start;
-    size_t body_len;
-};
+    const char *body_start = NULL;
 
-static bool parse_headers(struct http_request *request, const char *data,
-                          size_t size, struct parse_body_info *body_info)
-{
-    const char *current = data;
-    size_t remaining = size;
-
-    while (remaining > 0)
+    if (size >= 4)
     {
-        const char *line_end = find_crlf(current, remaining);
-        if (!line_end)
+        for (size_t i = 0; i + 3 < size; i++)
         {
-            break;
+            if (data[i] == '\r' && data[i + 1] == '\n' && data[i + 2] == '\r'
+                && data[i + 3] == '\n')
+            {
+                body_start = &data[i + 4];
+                break;
+            }
         }
-
-        size_t line_len = line_end - current;
-
-        if (line_len == 0)
-        {
-            current = line_end + 2;
-            body_info->body_start = current;
-            body_info->body_len = size - (current - data);
-            return true;
-        }
-
-        parse_header_line(request, current, line_len);
-
-        current = line_end + 2;
-        remaining = size - (current - data);
     }
 
-    body_info->body_start = NULL;
-    body_info->body_len = 0;
+    size_t header_len = body_start ? (size_t)(body_start - data) : size;
+
+    for (size_t i = 0; i < header_len; i++)
+    {
+        if (data[i] == '\0')
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool validate_content_length(struct http_request *request)
+{
+    struct http_header *cl = http_header_find(request->headers,
+                                              "Content-Length");
+    if (!cl || !cl->value || !cl->value->data)
+    {
+        return true;
+    }
+
+    const char *val = cl->value->data;
+    if (*val == '\0' || *val == '-')
+    {
+        return false;
+    }
+
+    for (const char *p = val; *p != '\0'; p++)
+    {
+        // Check digit without casting
+        if (*p < '0' || *p > '9')
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -284,42 +317,69 @@ struct http_request *http_request_parse(const char *data, size_t size)
         return NULL;
     }
 
-    struct http_request *request = http_request_create();
-    if (!request)
+    if (check_null_bytes_in_headers(data, size))
     {
         return NULL;
     }
 
-    const char *current = data;
-    size_t remaining = size;
-
-    const char *line_end = find_crlf(current, remaining);
-    if (!line_end)
+    struct http_request *req = http_request_create();
+    if (!req)
     {
-        http_request_destroy(request);
         return NULL;
     }
 
-    size_t line_len = line_end - current;
-    if (!parse_request_line(request, current, line_len))
+    const char *cur = data;
+    size_t rem = size;
+    const char *le = find_crlf(cur, rem);
+    if (!le)
     {
-        http_request_destroy(request);
+        http_request_destroy(req);
         return NULL;
     }
 
-    current = line_end + 2;
-    remaining = size - (current - data);
-
-    struct parse_body_info body_info;
-    parse_headers(request, current, remaining, &body_info);
-
-    if (body_info.body_start && body_info.body_len > 0)
+    if (!parse_request_line(req, cur, le - cur))
     {
-        request->body = string_create(body_info.body_start, body_info.body_len);
+        http_request_destroy(req);
+        return NULL;
     }
 
-    request->is_valid = true;
-    return request;
+    cur = le + 2;
+    rem = size - (cur - data);
+
+    while (rem > 0)
+    {
+        le = find_crlf(cur, rem);
+        if (!le)
+        {
+            break;
+        }
+        size_t len = le - cur;
+        if (len == 0)
+        {
+            cur = le + 2;
+            if (size > (size_t)(cur - data))
+            {
+                req->body = string_create(cur, size - (cur - data));
+            }
+            break;
+        }
+        if (!parse_header_line(req, cur, len))
+        {
+            http_request_destroy(req);
+            return NULL;
+        }
+        cur = le + 2;
+        rem = size - (cur - data);
+    }
+
+    if (!validate_content_length(req))
+    {
+        http_request_destroy(req);
+        return NULL;
+    }
+
+    req->is_valid = true;
+    return req;
 }
 
 struct http_response *http_response_create(enum http_status status)
@@ -341,7 +401,6 @@ struct http_response *http_response_create(enum http_status status)
         http_response_destroy(response);
         return NULL;
     }
-
     return response;
 }
 
@@ -351,7 +410,6 @@ void http_response_destroy(struct http_response *response)
     {
         return;
     }
-
     string_destroy(response->version);
     string_destroy(response->reason_phrase);
     string_destroy(response->body);
@@ -366,41 +424,39 @@ struct string *http_response_to_string(const struct http_response *response)
         return NULL;
     }
 
-    struct string *result = string_create_empty(1024);
-    if (!result)
+    struct string *res = string_create_empty(1024);
+    if (!res)
     {
         return NULL;
     }
 
-    string_concat_str(result, response->version->data, response->version->size);
-    string_concat_str(result, " ", 1);
+    string_concat_str(res, response->version->data, response->version->size);
+    string_concat_str(res, " ", 1);
 
-    char status_str[16];
-    int status_len =
-        snprintf(status_str, sizeof(status_str), "%d", response->status);
-    string_concat_str(result, status_str, status_len);
-    string_concat_str(result, " ", 1);
+    char st_str[16];
+    int st_len = snprintf(st_str, sizeof(st_str), "%d", response->status);
+    string_concat_str(res, st_str, st_len);
+    string_concat_str(res, " ", 1);
 
-    string_concat_str(result, response->reason_phrase->data,
+    string_concat_str(res, response->reason_phrase->data,
                       response->reason_phrase->size);
-    string_concat_str(result, "\r\n", 2);
+    string_concat_str(res, "\r\n", 2);
 
-    struct http_header *header = response->headers;
-    while (header)
+    struct http_header *h = response->headers;
+    while (h)
     {
-        string_concat_str(result, header->name->data, header->name->size);
-        string_concat_str(result, ": ", 2);
-        string_concat_str(result, header->value->data, header->value->size);
-        string_concat_str(result, "\r\n", 2);
-        header = header->next;
+        string_concat_str(res, h->name->data, h->name->size);
+        string_concat_str(res, ": ", 2);
+        string_concat_str(res, h->value->data, h->value->size);
+        string_concat_str(res, "\r\n", 2);
+        h = h->next;
     }
-
-    string_concat_str(result, "\r\n", 2);
+    string_concat_str(res, "\r\n", 2);
 
     if (response->body && response->body->size > 0)
     {
-        string_concat_str(result, response->body->data, response->body->size);
+        string_concat_str(res, response->body->data, response->body->size);
     }
 
-    return result;
+    return res;
 }
