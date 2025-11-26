@@ -78,11 +78,9 @@ static void test_logger_log_request(void)
     config.log_file = (char *)test_log;
     struct logger *logger = logger_create(&config);
 
-    struct log_request_info info = {
-        .request_type = "GET",
-        .target = "/index.html",
-        .client_ip = "127.0.0.1"
-    };
+    struct log_request_info info = { .request_type = "GET",
+                                     .target = "/index.html",
+                                     .client_ip = "127.0.0.1" };
     logger_log_request(logger, &info);
     logger_destroy(logger);
 

@@ -14,12 +14,13 @@
 
 struct logger;
 
-struct server {
-  struct server_config *config;
-  int socket_fd;
-  union socket_addr_union address;
-  bool running;
-  struct logger *logger;
+struct server
+{
+    struct server_config *config;
+    int socket_fd;
+    union socket_addr_union address;
+    bool running;
+    struct logger *logger;
 };
 
 struct server *server_create(struct server_config *config);

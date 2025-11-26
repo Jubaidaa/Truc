@@ -37,7 +37,8 @@ static void print_usage(const char *program_name)
     fprintf(stderr, "  --port PORT         Port number\n");
     fprintf(stderr, "  --ip IP             IP address to bind\n");
     fprintf(stderr, "  --root-dir DIR      Document root directory\n");
-    fprintf(stderr, "  --default-file FILE Default file (default: index.html)\n");
+    fprintf(stderr,
+            "  --default-file FILE Default file (default: index.html)\n");
     fprintf(stderr, "  -h, --help          Show help\n");
 }
 
@@ -57,8 +58,7 @@ static struct server_config *config_create_defaults(void)
     return config;
 }
 
-static void handle_log_option(struct server_config *config,
-                               const char *optarg)
+static void handle_log_option(struct server_config *config, const char *optarg)
 {
     if (strcmp(optarg, "true") == 0)
     {
@@ -123,8 +123,8 @@ static void parse_option_group2(struct server_config *config, int c,
     }
 }
 
-static int parse_option(struct server_config *config, int c,
-                        const char *optarg, char **argv)
+static int parse_option(struct server_config *config, int c, const char *optarg,
+                        char **argv)
 {
     if (c == 'h')
     {

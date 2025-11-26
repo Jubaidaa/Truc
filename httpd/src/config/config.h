@@ -3,16 +3,17 @@
 
 #include <stdbool.h>
 
-struct server_config {
-  char *log_file;
-  bool log_enabled;
-  char *pid_file;
-  char *daemon_action;
-  char *server_name;
-  int port;
-  char *ip;
-  char *root_dir;
-  char *default_file;
+struct server_config
+{
+    char *log_file;
+    bool log_enabled;
+    char *pid_file;
+    char *daemon_action;
+    char *server_name;
+    int port;
+    char *ip;
+    char *root_dir;
+    char *default_file;
 };
 
 struct server_config *config_parse(int argc, char **argv);

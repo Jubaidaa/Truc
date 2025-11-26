@@ -7,17 +7,19 @@
 #include "../config/config.h"
 #include "../http/http.h"
 
-struct logger {
-  FILE *output;
-  bool enabled;
-  bool owns_file;
-  char *server_name;
+struct logger
+{
+    FILE *output;
+    bool enabled;
+    bool owns_file;
+    char *server_name;
 };
 
-struct log_request_info {
-  const char *request_type;
-  const char *target;
-  const char *client_ip;
+struct log_request_info
+{
+    const char *request_type;
+    const char *target;
+    const char *client_ip;
 };
 
 struct logger *logger_create(const struct server_config *config);

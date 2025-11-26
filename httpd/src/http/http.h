@@ -8,51 +8,56 @@
 
 #define HTTP_VERSION_1_1 "HTTP/1.1"
 
-enum http_method {
-  HTTP_METHOD_UNKNOWN,
-  HTTP_METHOD_GET,
-  HTTP_METHOD_HEAD,
-  HTTP_METHOD_POST,
-  HTTP_METHOD_PUT,
-  HTTP_METHOD_DELETE,
-  HTTP_METHOD_CONNECT,
-  HTTP_METHOD_OPTIONS,
-  HTTP_METHOD_TRACE
+enum http_method
+{
+    HTTP_METHOD_UNKNOWN,
+    HTTP_METHOD_GET,
+    HTTP_METHOD_HEAD,
+    HTTP_METHOD_POST,
+    HTTP_METHOD_PUT,
+    HTTP_METHOD_DELETE,
+    HTTP_METHOD_CONNECT,
+    HTTP_METHOD_OPTIONS,
+    HTTP_METHOD_TRACE
 };
 
-enum http_status {
-  HTTP_STATUS_OK = 200,
-  HTTP_STATUS_BAD_REQUEST = 400,
-  HTTP_STATUS_FORBIDDEN = 403,
-  HTTP_STATUS_NOT_FOUND = 404,
-  HTTP_STATUS_METHOD_NOT_ALLOWED = 405,
-  HTTP_STATUS_INTERNAL_SERVER_ERROR = 500,
-  HTTP_STATUS_NOT_IMPLEMENTED = 501,
-  HTTP_STATUS_VERSION_NOT_SUPPORTED = 505
+enum http_status
+{
+    HTTP_STATUS_OK = 200,
+    HTTP_STATUS_BAD_REQUEST = 400,
+    HTTP_STATUS_FORBIDDEN = 403,
+    HTTP_STATUS_NOT_FOUND = 404,
+    HTTP_STATUS_METHOD_NOT_ALLOWED = 405,
+    HTTP_STATUS_INTERNAL_SERVER_ERROR = 500,
+    HTTP_STATUS_NOT_IMPLEMENTED = 501,
+    HTTP_STATUS_VERSION_NOT_SUPPORTED = 505
 };
 
-struct http_header {
-  struct string *name;
-  struct string *value;
-  struct http_header *next;
+struct http_header
+{
+    struct string *name;
+    struct string *value;
+    struct http_header *next;
 };
 
-struct http_request {
-  enum http_method method;
-  struct string *method_str;
-  struct string *target;
-  struct string *version;
-  struct http_header *headers;
-  struct string *body;
-  bool is_valid;
+struct http_request
+{
+    enum http_method method;
+    struct string *method_str;
+    struct string *target;
+    struct string *version;
+    struct http_header *headers;
+    struct string *body;
+    bool is_valid;
 };
 
-struct http_response {
-  enum http_status status;
-  struct string *version;
-  struct string *reason_phrase;
-  struct http_header *headers;
-  struct string *body;
+struct http_response
+{
+    enum http_status status;
+    struct string *version;
+    struct string *reason_phrase;
+    struct http_header *headers;
+    struct string *body;
 };
 
 enum http_method http_method_from_string(const char *method);
