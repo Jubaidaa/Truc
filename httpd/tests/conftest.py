@@ -11,6 +11,7 @@ SERVER_PORT = 8080
 SERVER_IP = "127.0.0.1"
 TEST_ROOT_DIR = "tests/www"
 LOG_FILE = "tests/test.log"
+PID_FILE = "tests/server.pid"
 
 def kill_process_on_port(port):
     try:
@@ -46,13 +47,19 @@ def server():
     kill_process_on_port(SERVER_PORT)
     setup_test_files()
     
+    # Suppression du fichier PID s'il existe deja
+    if os.path.exists(PID_FILE):
+        os.remove(PID_FILE)
+
     args = [
         SERVER_BIN,
         "--port", str(SERVER_PORT),
         "--ip", SERVER_IP,
         "--root-dir", TEST_ROOT_DIR,
         "--default-file", "index.html",
-        "--log", "false"
+        "--log", "false",
+        "--server-name", "test_server",
+        "--pid-file", PID_FILE
     ]
     
     proc = subprocess.Popen(
@@ -63,7 +70,7 @@ def server():
     
     time.sleep(0.2)
     if proc.poll() is not None:
-        raise RuntimeError(f"Le serveur a crashé (Return code: {proc.returncode}).")
+        raise RuntimeError(f"Le serveur a crashé (Return code: {proc.returncode}). Verifiez les arguments obligatoires.")
 
     if not wait_for_port(SERVER_PORT):
         proc.terminate()
@@ -80,3 +87,6 @@ def server():
     shutil.rmtree(TEST_ROOT_DIR, ignore_errors=True)
     if os.path.exists(LOG_FILE):
         os.remove(LOG_FILE)
+    if os.path.exists(PID_FILE):
+        os.remove(PID_FILE)
+        
