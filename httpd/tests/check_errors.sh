@@ -18,7 +18,7 @@ test_fail() {
 
 echo "--- Vérification des codes de retour ---"
 
-# 1. Manque le Port (
+# 1. Manque le Port
 test_fail "Missing PORT" --ip 127.0.0.1 --server-name test --root-dir . --pid_file test.pid
 
 # 2. Manque l'IP

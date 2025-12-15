@@ -70,3 +70,4 @@ clean:
 	rm -rf $(TEST_DIR)/__pycache__
 	rm -rf $(TEST_DIR)/.pytest_cache
 	rm -f *.tar.gz
+	rm -rf .pytest_cache

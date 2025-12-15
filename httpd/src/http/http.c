@@ -292,8 +292,8 @@ static bool check_null_bytes_in_headers(const char *data, size_t size)
 
 static bool validate_content_length(struct http_request *request)
 {
-    struct http_header *cl = http_header_find(request->headers,
-                                              "Content-Length");
+    struct http_header *cl =
+        http_header_find(request->headers, "Content-Length");
     if (!cl || !cl->value || !cl->value->data)
     {
         return true;

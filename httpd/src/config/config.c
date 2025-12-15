@@ -50,14 +50,9 @@ static struct server_config *config_create_defaults(void)
         return NULL;
     }
 
-    // Initialisation a 0/NULL pour forcer la validation stricte
     config->port = 0;
     config->ip = NULL;
-    // config->server_name est NULL via calloc
-    // config->root_dir est NULL via calloc
-    // config->pid_file est NULL via calloc
 
-    // Valeurs par defaut autorisees pour les champs optionnels
     config->default_file = string_duplicate_c("index.html");
     config->log_enabled = true;
 

@@ -7,6 +7,6 @@ littlegame.tar.gz
 # dir
 test_game
 env
-
+.pytest_cache
 # trashfiles
 *.o

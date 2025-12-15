@@ -194,8 +194,7 @@ static struct http_response *create_file_response(const char *filepath,
     time_t now = time(NULL);
     strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&now));
     http_header_add(&resp->headers, http_header_create("Date", buf));
-    http_header_add(&resp->headers,
-                    http_header_create("Connection", "close"));
+    http_header_add(&resp->headers, http_header_create("Connection", "close"));
 
     char len[32];
     snprintf(len, sizeof(len), "%ld", st.st_size);
